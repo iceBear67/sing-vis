@@ -1,5 +1,9 @@
 # sing-vis
 
+> [!WARNING]
+>
+> This project utilizes a rewritten routing engine with best efforts to match sing-box's logics, and some results may not be accurate.
+
 A web app that explains **how a [sing-box](https://github.com/SagerNet/sing-box) configuration routes a domain or IP**. Paste a sing-box JSON config, enter a list of domains/IPs, and sing-vis shows — for each one — which DNS rule and route rule it hits, every condition evaluated along the way, and the final DNS server and outbound.
 
 It runs **entirely in your browser**: the matching engine is plain JavaScript, so there is no backend, nothing is uploaded, and you can host it as static files (including on GitHub Pages). The only WebAssembly is a tiny module that decodes sing-box's binary `.srs` rule-set format, and it's downloaded lazily — only if a config you analyze actually uses one.
@@ -75,7 +79,13 @@ The site itself needs **no build** — `web/` is ready to serve as-is. The only 
 python3 -m http.server -d web 8787  # or any static server
 ```
 
-After `build.sh`, the `web/` directory is completely self-contained. To publish on **GitHub Pages**, serve `web/` (commit it, or copy it to a `gh-pages` branch / `docs/` folder). `web/srs.wasm`, `web/srs.wasm.gz`, and `web/wasm_exec.js` are generated artifacts (gitignored); regenerate them any time with `./build.sh`, or commit them so your host needs no Go. If you never analyze configs with binary (`.srs`) rule sets, you can skip the build entirely.
+After `build.sh`, the `web/` directory is completely self-contained. `web/srs.wasm`, `web/srs.wasm.gz`, and `web/wasm_exec.js` are generated artifacts (gitignored); regenerate them any time with `./build.sh`, or commit them so your host needs no Go. If you never analyze configs with binary (`.srs`) rule sets, you can skip the build entirely.
+
+### GitHub Pages
+
+`.github/workflows/pages.yml` publishes the site on every push to `master`: it checks out the sing-box submodule, runs `./build.sh` so the deployed site gets `.srs` support, gates the deploy on the parity suite (`goldgen -check` plus the Go and Node tests), and uploads `web/` as the Pages artifact. Enable it once under **Settings → Pages → Source: “GitHub Actions”**; you can also trigger it by hand from the Actions tab. Nothing generated is committed — the decoder is rebuilt per deploy.
+
+Every asset path in the app is relative, so a project page (`https://<user>.github.io/<repo>/`) works with no base-path configuration. To publish some other way, just serve `web/` — copy it to a `gh-pages` branch or a `docs/` folder and it will work the same.
 
 ### The wasm build overlay
 
@@ -124,4 +134,5 @@ test/              Node parity + end-to-end tests for the JS engine
 testdata/          fixtures.json (shared) + golden/*.json (from the oracle)
 wasmbuild/         wasm build support (overlay generator + unix→wasm stubs)
 sing-box/          upstream sing-box clone (imported via a go.mod replace)
+.github/workflows/ pages.yml — build + test + publish web/ to GitHub Pages
 ```

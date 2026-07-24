@@ -1,0 +1,76 @@
+# Publishes web/ to GitHub Pages on every push to master.
+#
+# The frontend needs no build — web/ is served as-is. The one generated piece is
+# the .srs decoder (web/srs.wasm + web/wasm_exec.js), which .gitignore keeps out
+# of the repo; CI runs ./build.sh to regenerate it, so the published site gets
+# binary rule-set support without those artifacts ever being committed. The
+# engine's parity suite runs before the upload, so a broken matcher can't reach
+# the site.
+#
+# One-time repository setup: Settings → Pages → Source: "GitHub Actions".
+name: Deploy to Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read # checkout
+  pages: write # publish the artifact
+  id-token: write # OIDC token deploy-pages exchanges for the deployment
+
+# Publish one commit at a time, and let a deployment that is already running
+# finish instead of cancelling it half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out, with the sing-box submodule
+        uses: actions/checkout@v7
+        with:
+          # go.mod `replace`s sing-box with ./sing-box, so nothing Go-related
+          # builds without it.
+          submodules: true
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22 # the JS tests need Node >= 20
+
+      - name: Build the .srs decoder (web/srs.wasm + web/wasm_exec.js)
+        run: ./build.sh
+
+      - name: Check the golden files still match the Go oracle
+        run: go run ./cmd/goldgen -check
+
+      - name: Test the engine
+        run: |
+          go test ./internal/engine
+          node test/run.mjs
+          node test/srs.mjs
+          node test/browser.mjs
+
+      - uses: actions/configure-pages@v6
+
+      - name: Upload web/ as the Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
