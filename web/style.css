@@ -273,12 +273,18 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .result-head {
   display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer;
   border-bottom: 1px solid transparent;
+  /* Long outbound/server tags can make the chips wider than the row. They are
+     flex-shrink:0, so without this the host name — the loudest thing on the
+     card — would silently shrink to an ellipsis and then to nothing. Let the
+     chips drop to a second line instead. */
+  flex-wrap: wrap; row-gap: 8px;
 }
 .result-card.open .result-head { border-bottom-color: var(--border); }
 .result-head .input-name {
   font-family: var(--mono); font-weight: 700; font-size: 16.5px; letter-spacing: -.2px;
-  /* A pasted URL must not squeeze the outcome chips out of the row. */
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* A pasted URL must not squeeze the outcome chips out of the row — but it
+     must not be squeezed to nothing by them either, hence the floor. */
+  min-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .result-head .caret { color: var(--text-faint); transition: transform .15s; margin-left: auto; }
 .result-card.open .result-head .caret { transform: rotate(90deg); }
@@ -440,3 +446,106 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .file-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; background: var(--bg-sunken); padding: 6px 10px; border-radius: 7px; }
 .file-row .fname { font-family: var(--mono); font-weight: 600; }
 .file-row .fmeta { color: var(--text-faint); font-size: 11px; }
+
+/* ---------- phones ----------
+   A 260px sidebar eats ~70% of a 375px screen, so below this width the profile
+   list stops being a column and becomes a horizontally scrollable row of chips
+   above the editor: switching profiles stays one tap, and the editor gets the
+   full width. The timestamp is dropped — it doesn't fit in a chip and is still
+   visible on the profile card once selected. */
+@media (max-width: 720px) {
+  .layout { grid-template-columns: 1fr; min-height: 0; }
+  /* Grid items default to min-width:auto, so the chip row's min-content width
+     would otherwise stretch the column past the viewport and let the whole page
+     scroll sideways. Both children must be allowed to shrink. */
+  .sidebar, .content { min-width: 0; }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 0 11px;
+    overflow: visible; /* the list scrolls, not the aside */
+  }
+  .sidebar-head { padding: 0 14px; margin-bottom: 8px; }
+
+  .profile-list {
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    /* Trailing padding lets the last chip clear the edge, and a partly visible
+       next chip is the affordance that the row scrolls. */
+    padding: 2px 14px 3px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .profile-list::-webkit-scrollbar { display: none; }
+
+  .profile-item {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    max-width: 62vw;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border-color: var(--border);
+    background: var(--bg-sunken);
+    scroll-snap-align: start;
+  }
+  .profile-item.active { background: var(--accent-weak); border-color: var(--accent); }
+  .profile-item .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .profile-item.active .name::after {
+    content: "●"; margin-left: 7px; color: var(--accent); font-size: 8px; vertical-align: middle;
+  }
+  .profile-item .meta { display: none; }
+  .empty-hint { padding: 2px 14px 4px; }
+
+  /* Reclaim horizontal room for the editor and results. */
+  .topbar { padding: 10px 14px; }
+  .subtitle { display: none; }
+  .logo { width: 34px; height: 34px; font-size: 22px; }
+  .content { padding: 16px 14px; gap: 16px; }
+  .card-body { padding: 13px; }
+  .row > .field { min-width: 0; }
+
+  /* Result cards: everything that is a single ellipsised line on desktop wraps
+     here instead. Desktop can afford `nowrap` because the pane is wide and you
+     can hover for the full text; on a phone that same rule either overflows the
+     page sideways or hides the answer behind an ellipsis you cannot reveal. */
+
+  /* Row 1: host + caret. Row 2: the outcome chips, on their own line.
+     .outcome-chips is flex-shrink:0 on desktop (a pasted URL must not squeeze
+     the verdict out of the row) — which also means it never wraps, so give it a
+     full-width row of its own rather than letting it push the card open. */
+  .result-head { flex-wrap: wrap; row-gap: 9px; gap: 10px; padding: 12px 13px; }
+  .result-head .input-name {
+    flex: 1 1 auto;
+    white-space: normal; overflow: visible; text-overflow: clip;
+    overflow-wrap: anywhere; font-size: 15px;
+  }
+  .result-head .caret { order: 1; }
+  .outcome-chips { order: 2; flex-basis: 100%; flex-shrink: 1; min-width: 0; }
+  .chip { max-width: 100%; }
+  .chip .v { overflow-wrap: anywhere; }
+
+  /* Rule rows: let the matcher summary wrap, and drop the action onto its own
+     line indented under it, so `route → proxy-…` stays readable. */
+  .step-head { flex-wrap: wrap; gap: 8px; }
+  .step .summary {
+    flex: 1 1 auto;
+    white-space: normal; overflow: visible; text-overflow: clip;
+    overflow-wrap: anywhere; line-height: 1.5;
+  }
+  .step .action-text { flex: 1 1 100%; white-space: normal; padding-left: 36px; }
+  .step .effect { padding-left: 13px; }
+
+  /* Stack each condition's field over its values — a 148px label column leaves
+     too little for the values at this width. */
+  .cond { grid-template-columns: 1fr; gap: 3px; }
+  .cond .cf { word-break: normal; overflow-wrap: anywhere; }
+
+  .decision { padding: 11px 12px; gap: 8px; }
+  .decision .d-value { overflow-wrap: anywhere; min-width: 0; }
+  .result-body { padding: 4px 13px 14px; }
+}
