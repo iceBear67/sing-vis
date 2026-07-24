@@ -168,6 +168,7 @@ function renderEditor() {
   const d = state.draft;
   const network = store.get('network', '');
   const assume = store.get('assumeResolved', true);
+  const assumeHttps = store.get('assumeHttps', true);
   const files = Object.entries(d.ruleSetFiles || {});
   $('#content').innerHTML = `
     <div class="editor-pane">
@@ -207,6 +208,7 @@ function renderEditor() {
             Append <code>:port</code> to evaluate <code>port</code> / <code>port_range</code> rules.
             Prefix a line with a scheme — e.g. <code>rdp://10.0.0.5:3389</code>, <code>tls://example.com</code> —
             to set that line's assumed <b>protocol</b> (so <code>protocol</code> rules match instead of showing <code>UNKNOWN?</code>).
+            With <b>Assume https:443 for domains</b> on, domain lines default to <code>https</code> / port <code>443</code> when you omit both.
           </div>
         </div>
       </div>
@@ -216,6 +218,9 @@ function renderEditor() {
       <button class="btn primary" id="btn-analyze">▶ Analyze</button>
       <label class="check" title="Pre-resolve domains via DoH so ip_cidr / IP rule-set rules can match the resolved address">
         <input type="checkbox" id="opt-assume" ${assume ? 'checked' : ''}/> Resolve IPs for IP rules
+      </label>
+      <label class="check" title="Treat bare domains as https on port 443, so protocol / port rules match instead of showing UNKNOWN. An explicit scheme or :port on the line always wins; raw IPs are unaffected.">
+        <input type="checkbox" id="opt-https" ${assumeHttps ? 'checked' : ''}/> Assume https:443 for domains
       </label>
       <div class="field" style="max-width:140px;margin:0">
         <select id="opt-network" title="Assumed connection network for rules that filter on tcp/udp">
@@ -240,6 +245,7 @@ function renderEditor() {
   $('#btn-analyze').onclick = analyze;
   $('#f-files').onchange = handleFiles;
   $('#opt-assume').onchange = (e) => store.set('assumeResolved', e.target.checked);
+  $('#opt-https').onchange = (e) => store.set('assumeHttps', e.target.checked);
   $('#opt-network').onchange = (e) => store.set('network', e.target.value);
   $('#file-list').querySelectorAll('.rm-file').forEach((b) => {
     b.onclick = () => { delete state.draft.ruleSetFiles[b.dataset.key]; syncDraftFromForm(); renderEditor(); };
@@ -327,6 +333,7 @@ async function analyze() {
       dohServer: state.settings.dohServer,
       network: store.get('network', ''),
       assumeResolved: store.get('assumeResolved', true),
+      assumeHttps: store.get('assumeHttps', true),
     });
     state.lastResult = result;
     // Snapshot the config that produced this result, so the excerpts shown in

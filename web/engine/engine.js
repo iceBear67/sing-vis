@@ -179,12 +179,15 @@
 
     // destination port group (OR)
     const dp = [];
+    const portNote = () => ec.portDefaulted
+      ? `destination port ${ec.destPort} (assumed default — append :port to the input to override)`
+      : `destination port ${ec.destPort} (from input)`;
     if (mf.port.length) {
-      if (ec.havePort) { const [st, m] = matchPort(ec, mf.port); conds.push(condEval({ field: 'port', value: joinU16(mf.port), group: 'dest_port', status: st, matched: m, note: `destination port ${ec.destPort} (from input)` })); dp.push(st); }
+      if (ec.havePort) { const [st, m] = matchPort(ec, mf.port); conds.push(condEval({ field: 'port', value: joinU16(mf.port), group: 'dest_port', status: st, matched: m, note: portNote() })); dp.push(st); }
       else { conds.push(condEval({ field: 'port', value: joinU16(mf.port), group: 'dest_port', status: UNKNOWN, note: 'destination port is not part of the query (add :port to the input to check)' })); dp.push(UNKNOWN); }
     }
     if (mf.portRange.length) {
-      if (ec.havePort) { const [st, m] = matchPortRange(ec, mf.portRange); conds.push(condEval({ field: 'port_range', value: joinVals(mf.portRange), group: 'dest_port', status: st, matched: m, note: `destination port ${ec.destPort} (from input)` })); dp.push(st); }
+      if (ec.havePort) { const [st, m] = matchPortRange(ec, mf.portRange); conds.push(condEval({ field: 'port_range', value: joinVals(mf.portRange), group: 'dest_port', status: st, matched: m, note: portNote() })); dp.push(st); }
       else { conds.push(condEval({ field: 'port_range', value: joinVals(mf.portRange), group: 'dest_port', status: UNKNOWN, note: 'destination port is not part of the query (add :port to the input to check)' })); dp.push(UNKNOWN); }
     }
     if (dp.length) groupStatuses.push(orStatus(dp));
@@ -217,6 +220,7 @@
       const st = matchProtocol(ec, mf.protocol);
       let note = '';
       if (st === UNKNOWN) note = 'sniffed connection protocol not specified (set an assumed protocol to check)';
+      else if (ec.protocolDefaulted) note = `assumed protocol ${JSON.stringify(ec.protocol)} (default — prefix the input with a scheme to override)`;
       else note = `assumed protocol ${JSON.stringify(ec.protocol)}`;
       conds.push(condEval({ field: 'protocol', value: joinVals(mf.protocol), group: 'other', status: st, note }));
       groupStatuses.push(st);
@@ -549,6 +553,16 @@
     const it = { input: line, kind: 'domain' };
     ec.host = trimDot(rawHost).toLowerCase();
 
+    // A bare domain in the input box is almost always a web target, so unless
+    // the line says otherwise assume https on 443. This turns `protocol` /
+    // `port` conditions from UNKNOWN into real match results. An explicit
+    // scheme or `:port` on the line always wins; raw IPs are left alone, since
+    // there is no equivalent convention for them.
+    if (req.assumeHttps) {
+      if (!hasPort) { ec.destPort = 443; ec.havePort = true; ec.portDefaulted = true; }
+      if (ec.protocol === '') { ec.protocol = 'https'; ec.protocolDefaulted = true; }
+    }
+
     if (deps.resolver) {
       let r = null;
       try { r = await deps.resolver.resolve(ec.host, ''); } catch { r = null; }
@@ -600,7 +614,8 @@
     await rs.preload(tags);
 
     const assumeResolved = req.assumeResolved !== false; // default true
-    const reqN = { network: req.network || '', protocol: req.protocol || '', assumeResolved };
+    const assumeHttps = req.assumeHttps !== false;       // default true
+    const reqN = { network: req.network || '', protocol: req.protocol || '', assumeResolved, assumeHttps };
 
     const inputs = [];
     for (const raw of (req.inputs || [])) {
