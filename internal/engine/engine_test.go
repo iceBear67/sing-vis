@@ -179,6 +179,40 @@ func TestDNSServerSelection(t *testing.T) {
 	}
 }
 
+// A happy-eyeballs client queries A and AAAA in parallel, so the AAAA query gets
+// its own DNS trace — but only for names that actually have AAAA records.
+func TestDNSAAAAHappyEyeballs(t *testing.T) {
+	cfg := `{"dns":{
+		"servers":[{"tag":"a","type":"udp","server":"1.1.1.1"},{"tag":"b","type":"udp","server":"8.8.8.8"}],
+		"rules":[{"query_type":["AAAA"],"action":"reject"},{"domain_suffix":["v6.com"],"server":"b"}],
+		"final":"a"}}`
+	res := &fakeResolver{answers: map[string]*dnsx.Result{
+		"dual.v6.com":   {Name: "dual.v6.com", IPv4: []string{"203.0.113.5"}, IPv6: []string{"2001:db8::5"}},
+		"v4only.v6.com": {Name: "v4only.v6.com", IPv4: []string{"203.0.113.6"}},
+	}}
+
+	it := analyzeOne(t, cfg, "dual.v6.com", true, res)
+	if it.DNS == nil || it.DNS.QueryType != "A" || it.DNS.Decision.Server != "b" {
+		t.Errorf("dual.v6.com: A trace = %+v, want query A → server b", it.DNS)
+	}
+	if it.DNSAAAA == nil {
+		t.Fatal("dual.v6.com: missing AAAA DNS trace")
+	}
+	if it.DNSAAAA.QueryType != "AAAA" || it.DNSAAAA.Decision.ActionType != "reject" || it.DNSAAAA.MatchedIndex != 0 {
+		t.Errorf("dual.v6.com: AAAA trace = %+v, want query AAAA → reject at rule 0", it.DNSAAAA)
+	}
+
+	// No AAAA records: the AAAA query never influences the connection, so it is
+	// not traced.
+	if it := analyzeOne(t, cfg, "v4only.v6.com", true, res); it.DNSAAAA != nil {
+		t.Errorf("v4only.v6.com: got an AAAA trace (%+v), want none", it.DNSAAAA)
+	}
+	// No resolver at all: nothing to gate on.
+	if it := analyzeOne(t, cfg, "dual.v6.com", true, nil); it.DNSAAAA != nil {
+		t.Errorf("unresolved: got an AAAA trace (%+v), want none", it.DNSAAAA)
+	}
+}
+
 func TestRawIPInput(t *testing.T) {
 	cfg := `{"route":{"rules":[{"ip_cidr":["10.0.0.0/8"],"outbound":"lan"}],"final":"wan"}}`
 

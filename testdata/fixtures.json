@@ -223,6 +223,12 @@
       "config": {"dns":{"servers":[{"tag":"cn","type":"udp","server":"223.5.5.5","detour":"direct"},{"tag":"proxy","type":"https","server":"1.1.1.1","detour":"px"}],"rules":[{"domain_suffix":["cn.com"],"server":"cn"}],"final":"proxy"},"route":{"rules":[{"domain_suffix":["cn.com"],"outbound":"direct"}],"final":"px"}},
       "inputs": ["www.cn.com", "www.us.com"],
       "dns": {"www.cn.com":{"ipv4":["203.0.113.1"]}, "www.us.com":{"ipv4":["93.184.216.34"]}}
+    },
+    {
+      "name": "dns_aaaa_happy_eyeballs",
+      "config": {"dns":{"servers":[{"tag":"a","type":"udp","server":"1.1.1.1"},{"tag":"b","type":"udp","server":"8.8.8.8"}],"rules":[{"query_type":["AAAA"],"action":"reject"},{"domain_suffix":["v6.com"],"server":"b"}],"final":"a"}},
+      "inputs": ["dual.v6.com", "v4only.v6.com", "1.2.3.4"],
+      "dns": {"dual.v6.com":{"ipv4":["203.0.113.5"],"ipv6":["2001:db8::5"]}, "v4only.v6.com":{"ipv4":["203.0.113.6"]}}
     }
   ]
 }

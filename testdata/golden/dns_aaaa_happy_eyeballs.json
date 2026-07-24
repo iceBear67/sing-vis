@@ -1,0 +1,212 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "dual.v6.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh",
+        "ipv4": [
+          "203.0.113.5"
+        ],
+        "ipv6": [
+          "2001:db8::5"
+        ]
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "query_type=AAAA",
+            "actionType": "reject",
+            "actionText": "reject (default)",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "query_type",
+                "value": "AAAA",
+                "group": "other",
+                "status": "no_match",
+                "note": "evaluated for the DNS query type shown"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=v6.com",
+            "actionType": "route",
+            "actionText": "route → server b",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "v6.com",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "v6.com"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": 1,
+        "final": "a",
+        "decision": {
+          "actionType": "route",
+          "server": "b",
+          "detail": "route → server b",
+          "serverInfo": {
+            "tag": "b",
+            "type": "udp",
+            "address": "8.8.8.8"
+          },
+          "fromFinal": false,
+          "assumed": false
+        }
+      },
+      "dnsAAAA": {
+        "queryType": "AAAA",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "query_type=AAAA",
+            "actionType": "reject",
+            "actionText": "reject (default)",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "query_type",
+                "value": "AAAA",
+                "group": "other",
+                "status": "match",
+                "matched": "AAAA",
+                "note": "evaluated for the DNS query type shown"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": 0,
+        "final": "a",
+        "decision": {
+          "actionType": "reject",
+          "detail": "reject (default)",
+          "fromFinal": false,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "v4only.v6.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh",
+        "ipv4": [
+          "203.0.113.6"
+        ]
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "query_type=AAAA",
+            "actionType": "reject",
+            "actionText": "reject (default)",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "query_type",
+                "value": "AAAA",
+                "group": "other",
+                "status": "no_match",
+                "note": "evaluated for the DNS query type shown"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=v6.com",
+            "actionType": "route",
+            "actionText": "route → server b",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "v6.com",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "v6.com"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": 1,
+        "final": "a",
+        "decision": {
+          "actionType": "route",
+          "server": "b",
+          "detail": "route → server b",
+          "serverInfo": {
+            "tag": "b",
+            "type": "udp",
+            "address": "8.8.8.8"
+          },
+          "fromFinal": false,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "1.2.3.4",
+      "kind": "ip",
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

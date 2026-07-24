@@ -14,7 +14,11 @@ type InputTrace struct {
 	Error    string        `json:"error,omitempty"`
 	Resolved *ResolvedInfo `json:"resolved,omitempty"`
 	DNS      *DNSTrace     `json:"dns,omitempty"`
-	Route    *RouteTrace   `json:"route,omitempty"`
+	// DNSAAAA is the same DNS routing evaluated for the AAAA query a happy-eyeballs
+	// client issues alongside the A query. Present only when the name actually has
+	// AAAA records (otherwise that query never influences the connection).
+	DNSAAAA *DNSTrace   `json:"dnsAAAA,omitempty"`
+	Route   *RouteTrace `json:"route,omitempty"`
 }
 
 // ResolvedInfo holds the DoH resolution result for a domain.
@@ -28,7 +32,7 @@ type ResolvedInfo struct {
 // DNSTrace explains which DNS rule (and thus which DNS server / action) a domain
 // hits during DNS resolution.
 type DNSTrace struct {
-	QueryType    string       `json:"queryType"` // the query type used for evaluation (A)
+	QueryType    string       `json:"queryType"` // the query type used for evaluation (A or AAAA)
 	Steps        []RuleEval   `json:"steps"`
 	MatchedIndex int          `json:"matchedIndex"` // -1 => fell through to final
 	Final        string       `json:"final"`        // dns.final server tag (or effective default)

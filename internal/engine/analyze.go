@@ -73,7 +73,13 @@ func analyzeInput(ctx context.Context, cfg *Config, rs *ruleSetResolver, req Req
 		}
 	}
 
-	it.DNS = ec.matchDNS(cfg)
+	it.DNS = ec.matchDNS(cfg, 1) // dns.TypeA
+	// Happy eyeballs: clients query A and AAAA in parallel and will happily use
+	// the IPv6 answer, so the AAAA query's own DNS path matters too. Skipped when
+	// the name has no AAAA records — that query is then moot.
+	if it.Resolved != nil && len(it.Resolved.IPv6) > 0 {
+		it.DNSAAAA = ec.matchDNS(cfg, 28) // dns.TypeAAAA
+	}
 	it.Route = ec.matchRoute(cfg)
 	return it
 }

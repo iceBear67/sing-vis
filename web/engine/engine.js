@@ -387,9 +387,12 @@
   }
 
   // ---- DNS matching ----
-  function matchDNS(ec, cfg) {
+  // Evaluated for one query type at a time: applications issue A and AAAA in
+  // parallel (happy eyeballs), and query_type rules can route — or reject — the
+  // two independently, so each is traced separately.
+  function matchDNS(ec, cfg, queryType) {
     const prevQT = ec.queryType;
-    ec.queryType = 1; // A
+    ec.queryType = queryType;
     try {
       const steps = [];
       let hadConditional = false;
@@ -403,7 +406,7 @@
         if (re.status === MATCH) {
           if (!a.terminal) { re.effect = 'matched but non-terminal; continues scanning'; steps.push(re); continue; }
           steps.push(re);
-          return dnsTrace(steps, i, finalTag, dnsDecision(cfg, a, false, hadConditional));
+          return dnsTrace(steps, i, finalTag, dnsDecision(cfg, a, false, hadConditional), '', queryType);
         } else if (re.status === UNKNOWN) {
           if (a.terminal) { re.effect = 'could match here if its undetermined conditions hold'; hadConditional = true; }
           steps.push(re);
@@ -413,13 +416,13 @@
       }
       const finalAction = { typ: 'route', server: finalTag, terminal: true, detail: 'route → server ' + (finalTag || '(first server)') };
       const note = cfg.dnsRules.length === 0 ? 'no DNS rules; the final server is always used' : '';
-      return dnsTrace(steps, -1, finalTag, dnsDecision(cfg, finalAction, true, hadConditional), note);
+      return dnsTrace(steps, -1, finalTag, dnsDecision(cfg, finalAction, true, hadConditional), note, queryType);
     } finally {
       ec.queryType = prevQT;
     }
   }
-  function dnsTrace(steps, matchedIndex, finalTag, decision, note) {
-    const tr = { queryType: 'A', steps: steps.length ? steps : null, matchedIndex, final: finalTag, decision };
+  function dnsTrace(steps, matchedIndex, finalTag, decision, note, queryType) {
+    const tr = { queryType: queryTypeName(queryType), steps: steps.length ? steps : null, matchedIndex, final: finalTag, decision };
     if (note) tr.note = note;
     return tr;
   }
@@ -565,7 +568,13 @@
       }
     }
 
-    it.dns = matchDNS(ec, cfg);
+    it.dns = matchDNS(ec, cfg, 1); // A
+    // Happy eyeballs: clients query A and AAAA in parallel and will happily use
+    // the IPv6 answer, so the AAAA query's own DNS path matters too. Skipped
+    // when the name has no AAAA records — that query is then moot.
+    if (it.resolved && it.resolved.ipv6 && it.resolved.ipv6.length) {
+      it.dnsAAAA = matchDNS(ec, cfg, 28); // AAAA
+    }
     it.route = matchRoute(ec, cfg);
     return it;
   }

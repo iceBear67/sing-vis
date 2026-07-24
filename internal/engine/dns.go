@@ -47,13 +47,15 @@ func dnsActionOf(r option.DNSRule) actionInfo {
 }
 
 // matchDNS evaluates DNS rules for the host to determine which DNS server / DNS
-// rule action is hit. Evaluated for A queries (the common resolution path).
-func (ec *evalCtx) matchDNS(cfg *Config) *DNSTrace {
+// rule action is hit. Evaluated for one query type at a time: applications issue
+// A and AAAA in parallel (happy eyeballs), and query_type rules can route — or
+// reject — the two independently, so each is traced separately.
+func (ec *evalCtx) matchDNS(cfg *Config, queryType uint16) *DNSTrace {
 	prevQT := ec.queryType
-	ec.queryType = 1 // dns.TypeA
+	ec.queryType = queryType
 	defer func() { ec.queryType = prevQT }()
 
-	tr := &DNSTrace{QueryType: "A", MatchedIndex: -1, Final: cfg.effectiveDNSFinal()}
+	tr := &DNSTrace{QueryType: queryTypeName(queryType), MatchedIndex: -1, Final: cfg.effectiveDNSFinal()}
 	hadConditional := false
 
 	for i, r := range cfg.DNSRules {

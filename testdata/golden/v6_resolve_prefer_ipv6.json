@@ -26,6 +26,19 @@
         },
         "note": "no DNS rules; the final server is always used"
       },
+      "dnsAAAA": {
+        "queryType": "AAAA",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
       "route": {
         "steps": [
           {

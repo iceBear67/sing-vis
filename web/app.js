@@ -424,6 +424,7 @@ function renderInputCard(it, idx) {
     chips.push(`<span class="chip reject"><span class="k">error</span><span class="v">${esc(it.error || 'invalid')}</span></span>`);
   } else {
     if (it.dns && it.dns.decision) chips.push(dnsChip(it.dns.decision));
+    if (it.dnsAAAA && it.dnsAAAA.decision && !sameDNSOutcome(it.dns, it.dnsAAAA)) chips.push(dnsChip(it.dnsAAAA.decision, 'DNS AAAA'));
     if (it.route && it.route.decision) chips.push(routeChip(it.route.decision));
     const ip = inputIP(it);
     if (ip) chips.push(`<span class="chip geo-chip" data-geo-ip="${esc(ip)}"></span>`);
@@ -441,16 +442,40 @@ function renderInputCard(it, idx) {
         ${it.kind === 'invalid' ? `<p class="muted">${esc(it.error || 'Could not parse this input.')}</p>` : ''}
         ${renderResolved(it.resolved)}
         ${it.dns ? `<div class="section-title">DNS routing (which server / dns action)</div>${renderTrace(it.dns, 'dns')}` : ''}
+        ${renderDNSAAAA(it)}
         ${it.route ? `<div class="section-title">Route matching (which rule / outbound)</div>${renderTrace(it.route, 'route')}` : ''}
       </div>
     </div>`;
 }
 
-function dnsChip(dec) {
-  if (dec.actionType === 'reject') return `<span class="chip reject"><span class="k">DNS</span><span class="v">reject</span></span>`;
+function dnsChip(dec, label) {
+  const k = esc(label || 'DNS');
+  if (dec.actionType === 'reject') return `<span class="chip reject"><span class="k">${k}</span><span class="v">reject</span></span>`;
   const server = dec.server || (dec.actionType);
   const detour = dec.serverInfo && dec.serverInfo.detour ? ` <span class="k">via</span> ${esc(dec.serverInfo.detour)}` : '';
-  return `<span class="chip dns"><span class="k">DNS</span><span class="v">${esc(server)}</span>${detour}</span>`;
+  return `<span class="chip dns"><span class="k">${k}</span><span class="v">${esc(server)}</span>${detour}</span>`;
+}
+
+// Two DNS traces land on the same outcome when they pick the same rule and the
+// same action/server — i.e. the query type made no difference.
+function sameDNSOutcome(a, b) {
+  if (!a || !b) return false;
+  const x = a.decision || {}, y = b.decision || {};
+  return a.matchedIndex === b.matchedIndex && x.actionType === y.actionType &&
+    (x.server || '') === (y.server || '') && !!x.fromFinal === !!y.fromFinal && !!x.assumed === !!y.assumed;
+}
+
+// Happy eyeballs: a client queries A and AAAA in parallel and will use whichever
+// answers first, so the AAAA query's DNS path matters too — a `query_type: AAAA`
+// reject rule is the common way it diverges. The engine only emits this trace
+// for names that actually have AAAA records; it's rendered in full only when the
+// path really differs, so the usual case doesn't duplicate the whole trace.
+function renderDNSAAAA(it) {
+  if (!it.dnsAAAA) return '';
+  if (sameDNSOutcome(it.dns, it.dnsAAAA)) {
+    return `<p class="muted" style="margin-top:6px">The AAAA query (happy eyeballs) takes the same DNS path.</p>`;
+  }
+  return `<div class="section-title">DNS routing · AAAA query (happy eyeballs)</div>${renderTrace(it.dnsAAAA, 'dns')}`;
 }
 
 function routeChip(dec) {
