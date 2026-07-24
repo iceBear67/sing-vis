@@ -42,6 +42,7 @@ type evalCtx struct {
 	destAddr     netip.Addr
 	destPort     uint16 // destination port supplied on the input line (host:port)
 	havePort     bool   // a destination port was supplied, so port rules are determinable
+	protocol     string // assumed sniffed protocol ("" = unknown), e.g. tls/http/quic
 	destResolved bool         // addresses populated (via resolve/assume)
 	addresses    []netip.Addr // resolved/assumed destination addresses
 	rs           *ruleSetResolver
@@ -72,6 +73,7 @@ type matchFields struct {
 	srcPort       []uint16
 	srcPortRange  []string
 	network       []string
+	protocol      []string
 	queryType     []option.DNSQueryType
 	ruleSet       []string
 	rsMatchSource bool
@@ -264,6 +266,18 @@ func (ec *evalCtx) evalFields(mf matchFields) (string, []CondEval) {
 			note = "connection network (tcp/udp) not specified"
 		}
 		conds = append(conds, CondEval{Field: "network", Value: joinVals(mf.network), Group: groupOther, Status: st, Note: note})
+		groupStatuses = append(groupStatuses, st)
+	}
+	if len(mf.protocol) > 0 {
+		st := ec.matchProtocol(mf.protocol)
+		note := ""
+		switch st {
+		case StatusUnknown:
+			note = "sniffed connection protocol not specified (set an assumed protocol to check)"
+		case StatusMatch, StatusNoMatch:
+			note = fmt.Sprintf("assumed protocol %q", ec.protocol)
+		}
+		conds = append(conds, CondEval{Field: "protocol", Value: joinVals(mf.protocol), Group: groupOther, Status: st, Note: note})
 		groupStatuses = append(groupStatuses, st)
 	}
 	if len(mf.queryType) > 0 {
@@ -484,6 +498,21 @@ func (ec *evalCtx) matchPortRange(ranges []string) (string, string) {
 		}
 	}
 	return StatusNoMatch, ""
+}
+
+// matchProtocol evaluates a `protocol` condition against the assumed sniffed
+// protocol. Like network it is UNKNOWN until a protocol is assumed; sing-box's
+// route/rule.ProtocolItem matches when the sniffed protocol is in the set.
+func (ec *evalCtx) matchProtocol(protocols []string) string {
+	if ec.protocol == "" {
+		return StatusUnknown
+	}
+	for _, p := range protocols {
+		if strings.EqualFold(p, ec.protocol) {
+			return StatusMatch
+		}
+	}
+	return StatusNoMatch
 }
 
 func (ec *evalCtx) matchQueryType(types []option.DNSQueryType) (string, string) {

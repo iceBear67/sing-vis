@@ -21,11 +21,12 @@ Open the printed URL. That's it.
 ## Using it
 
 1. **Paste a config.** The editor opens pre-filled with a sample. Replace it with your own sing-box JSON in the config box (JSONC comments are fine), and give the profile a name.
-2. **List what to check.** In *Domains / IPs to check*, put one host per line — domains (`www.google.com`) or raw IPs (`1.1.1.1`). Lines starting with `#` are ignored. Pasted URLs and `host:port` strings are accepted (scheme/path/port are stripped).
+2. **List what to check.** In *Domains / IPs to check*, put one host per line — domains (`www.google.com`) or raw IPs (`1.1.1.1`). Lines starting with `#` are ignored. Pasted URLs and `host:port` strings are accepted; a trailing `:port` (e.g. `example.com:443`, `[2606:4700:4700::1111]:853`) is **used** to evaluate `port` / `port_range` rules that would otherwise be undeterminable — omit it to leave those rules `UNKNOWN?`. A leading scheme (e.g. `rdp://10.0.0.5:3389`, `tls://example.com`) sets that line's assumed **protocol**, so `protocol` rules can be evaluated instead of shown as `UNKNOWN?`. Both the config box and this list are syntax-highlighted as you type.
 3. **Click ▶ Analyze.** The first run downloads the ~3.3 MB wasm engine (cached afterwards). For every input you get:
    - **DNS routing** — which `dns.rules` rule matches, the resulting DNS **server** (or `reject`/other action), and the outbound **detour** that server is reached through.
    - **Route matching** — every `route.rules` rule in order, each condition's result (**match** / no match / **`UNKNOWN?`**), which `rule_set` matched and on which headless rule, down to the **final outbound**.
    - **Resolved IPs** — the A/AAAA records fetched via DoH (shown when a domain is resolved).
+   - **Geolocation** — every IP shown (resolved addresses and raw-IP inputs) is tagged with a country flag and location (归属地); see *IP geolocation* below.
 
    Click any result card to expand it, and any rule step to see its per-condition breakdown.
 4. **Save the profile** with 💾. Profiles live in your browser (IndexedDB), persist across reloads, and appear in the left sidebar. Settings persist too. Everything stays on your machine.
@@ -34,17 +35,21 @@ Open the printed URL. That's it.
 
 - **Resolve IPs for IP rules** (on by default) — pre-resolves each domain via DoH so `ip_cidr` and IP rule-set rules match the resolved address, matching what you'd intuitively expect. Turn it off for strict sing-box semantics, where IP rules only match *after* an explicit `resolve` action.
 - **network: any / tcp / udp** — an assumed connection network, so rules filtering on `network` can be evaluated.
-- **⚙ Settings** — the DoH endpoint (default `https://1.1.1.1/dns-query`).
+- **⚙ Settings** — the DoH endpoint (default `https://1.1.1.1/dns-query`) with a **Test resolver** button that confirms the endpoint actually resolves from your browser, plus the IP-geolocation toggle and database URL.
 
 ### Conditions that can't be known offline
 
-Some rule conditions depend on live connection attributes that don't exist for a "what would this domain do?" query — `protocol`, `process_name`, `inbound`, `clash_mode`, source address/port, destination `port`, etc. These show as **`UNKNOWN?`** (amber). If such an undeterminable **terminal** rule sits *before* the definite match, the outcome is flagged **"depends on assumptions"**, because at runtime that rule could preempt the result.
+Some rule conditions depend on live connection attributes that don't exist for a "what would this domain do?" query — `process_name`, `inbound`, `clash_mode`, source address/port, etc. These show as **`UNKNOWN?`** (amber). Two are recoverable: append `:port` to an input to resolve `port` / `port_range` rules, and prefix a line with a scheme (e.g. `rdp://`) to resolve `protocol` rules. If an undeterminable **terminal** rule sits *before* the definite match, the outcome is flagged **"depends on assumptions"**, because at runtime that rule could preempt the result.
 
 ### Rule sets
 
 - **inline** — read straight from the config.
 - **remote** — fetched live from its `url` (source `.json` or binary `.srs`, auto-detected). The URL must allow CORS (GitHub raw does).
 - **local** — the browser can't read disk paths, so upload the file under *Local rule-set files* in the editor, keyed by the rule-set **tag** or its **path**. `.srs` is read as binary; anything else as source JSON.
+
+### IP geolocation
+
+Every IP in the results — resolved addresses and raw-IP inputs alike — is annotated with a country flag and location (归属地) from the [metowolf/qqwry.ipdb](https://github.com/metowolf/qqwry.ipdb) database (IPIP.net `ipdb` format, IPv4 + IPv6; the flag comes from its ISO-3166 `country_code` field). The ~37 MB database is downloaded once from a CDN (default `https://cdn.jsdelivr.net/npm/qqwry.ipdb/qqwry.ipdb`), cached in your browser (IndexedDB), and queried entirely locally — **no IP is ever sent anywhere**. Toggle it off, or point it at a different `ipdb`-format URL, under **⚙ Settings**. The URL must allow CORS (the jsdelivr default does).
 
 ## Why it's faithful
 
@@ -83,7 +88,7 @@ go test ./internal/engine
 
 ## CORS
 
-DoH resolution and remote rule-set fetches originate from the browser, so those endpoints must send `Access-Control-Allow-Origin`. The defaults do — Cloudflare/Google DoH JSON (`https://1.1.1.1/dns-query`, `https://dns.google/dns-query`) and `raw.githubusercontent.com`. Point sing-vis at an endpoint that doesn't, and that item shows a fetch error; swap it for a CORS-enabled one, or upload the rule-set file locally. The resolver uses the DoH **JSON API** (`?name=&type=&ct=application/dns-json`), a CORS "simple request" that avoids a preflight.
+DoH resolution, remote rule-set fetches and the geo-database download originate from the browser, so those endpoints must send `Access-Control-Allow-Origin`. The defaults do — Cloudflare/Google DoH JSON (`https://1.1.1.1/dns-query`, `https://dns.google/dns-query`), `raw.githubusercontent.com`, and the jsdelivr CDN for qqwry.ipdb. Point sing-vis at an endpoint that doesn't, and that item shows a fetch error; swap it for a CORS-enabled one, or upload the rule-set file locally. The resolver uses the DoH **JSON API** (`?name=&type=&ct=application/dns-json`), a CORS "simple request" that avoids a preflight.
 
 ## Project layout
 
@@ -101,7 +106,9 @@ internal/dnsx/     DoH (JSON API) resolver
 web/               static single-page frontend (no build step)
   index.html         markup
   app.js             UI + rendering
-  storage.js         profiles & settings in IndexedDB
+  editor.js          JSON / host-list syntax highlighting (transparent-textarea overlay)
+  geoip.js           qqwry.ipdb (IPIP.net ipdb format) reader for IP geolocation
+  storage.js         profiles, settings & cached geo database in IndexedDB
   worker.js          Web Worker: loads the wasm engine, runs analyze off the UI thread
 wasmbuild/         wasm build support (overlay generator + unix→wasm stubs)
 sing-box/          upstream sing-box clone (imported via a go.mod replace)

@@ -30,8 +30,14 @@ func analyze(ctx context.Context, req Request) (*Result, error) {
 
 func analyzeInput(ctx context.Context, cfg *Config, rs *ruleSetResolver, req Request, line string) InputTrace {
 	it := InputTrace{Input: line}
-	host, port, hasPort := normalizeInput(line)
-	ec := &evalCtx{ctx: ctx, network: req.Network, rs: rs, resolver: req.Resolver, destPort: port, havePort: hasPort}
+	host, port, hasPort, scheme := normalizeInput(line)
+	// A URL scheme on the line (e.g. rdp://host:port) sets the assumed protocol
+	// for this input only, overriding the request-wide protocol assumption.
+	protocol := req.Protocol
+	if scheme != "" {
+		protocol = scheme
+	}
+	ec := &evalCtx{ctx: ctx, network: req.Network, protocol: protocol, rs: rs, resolver: req.Resolver, destPort: port, havePort: hasPort}
 
 	if addr, ok := parseIPInput(host); ok {
 		it.Kind = "ip"
@@ -72,17 +78,19 @@ func analyzeInput(ctx context.Context, cfg *Config, rs *ruleSetResolver, req Req
 	return it
 }
 
-// normalizeInput strips scheme, path and userinfo, then separates a trailing
-// :port so pasted URLs or host:port strings still analyze correctly. The port is
-// returned (rather than discarded) so port / port_range rules can be evaluated
-// against it. Raw IPv6 literals (many colons) are left intact; bracketed IPv6
-// (`[v6]` / `[v6]:port`) is unwrapped.
-func normalizeInput(s string) (host string, port uint16, hasPort bool) {
+// normalizeInput separates a leading URL scheme, path/userinfo and a trailing
+// :port from an input line so pasted URLs or host:port strings still analyze
+// correctly. The scheme and port are returned (rather than discarded): the port
+// lets port / port_range rules be evaluated, and the scheme (e.g. rdp, tls) is
+// used as a per-line protocol assumption. Raw IPv6 literals (many colons) are
+// left intact; bracketed IPv6 (`[v6]` / `[v6]:port`) is unwrapped.
+func normalizeInput(s string) (host string, port uint16, hasPort bool, scheme string) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return s, 0, false
+		return s, 0, false, ""
 	}
 	if i := strings.Index(s, "://"); i >= 0 {
+		scheme = strings.ToLower(s[:i])
 		s = s[i+3:]
 	}
 	if i := strings.IndexByte(s, '/'); i >= 0 {
@@ -99,10 +107,10 @@ func normalizeInput(s string) (host string, port uint16, hasPort bool) {
 			hostPart := s[1:end]
 			if rest := s[end+1:]; strings.HasPrefix(rest, ":") {
 				if p, ok := parsePort(rest[1:]); ok {
-					return hostPart, p, true
+					return hostPart, p, true, scheme
 				}
 			}
-			return hostPart, 0, false
+			return hostPart, 0, false, scheme
 		}
 	}
 
@@ -110,7 +118,7 @@ func normalizeInput(s string) (host string, port uint16, hasPort bool) {
 	if strings.Count(s, ":") == 1 {
 		if h, ps, ok := strings.Cut(s, ":"); ok && h != "" {
 			if p, pok := parsePort(ps); pok {
-				return h, p, true
+				return h, p, true, scheme
 			}
 		}
 	}
@@ -118,7 +126,7 @@ func normalizeInput(s string) (host string, port uint16, hasPort bool) {
 	// Strip stray brackets around a bare IPv6 (no port).
 	s = strings.TrimPrefix(s, "[")
 	s = strings.TrimSuffix(s, "]")
-	return s, 0, false
+	return s, 0, false, scheme
 }
 
 // parsePort parses a decimal port in the valid 1–65535 range. Port 0 is treated

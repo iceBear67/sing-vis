@@ -22,6 +22,7 @@ type Request struct {
 	Inputs       []string
 	RuleSetFiles map[string]RuleSetFile
 	Network      string // optional assumed network: "", "tcp", "udp"
+	Protocol     string // optional assumed sniffed protocol: "", "tls", "http", ...
 	// AssumeResolved pre-resolves domains via DoH before route matching so that
 	// ip_cidr / IP rule-set rules can match the resolved addresses (matching user
 	// intuition). When false, IP rules only match after an explicit resolve action.

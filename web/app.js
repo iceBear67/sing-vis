@@ -197,7 +197,12 @@ function renderEditor() {
         </div>
         <div class="field">
           <label class="lbl">Domains / IPs to check <span class="hint">one per line — domains or raw IPs; # comments ignored</span></label>
-          <textarea id="f-inputs" class="inputs" spellcheck="false" placeholder="example.com&#10;1.1.1.1">${esc(d.inputs)}</textarea>
+          <textarea id="f-inputs" class="inputs" spellcheck="false" placeholder="example.com&#10;1.1.1.1&#10;rdp://10.0.0.5:3389">${esc(d.inputs)}</textarea>
+          <div class="hint input-help">
+            Append <code>:port</code> to evaluate <code>port</code> / <code>port_range</code> rules.
+            Prefix a line with a scheme — e.g. <code>rdp://10.0.0.5:3389</code>, <code>tls://example.com</code> —
+            to set that line's assumed <b>protocol</b> (so <code>protocol</code> rules match instead of showing <code>UNKNOWN?</code>).
+          </div>
         </div>
       </div>
     </div>
@@ -207,7 +212,7 @@ function renderEditor() {
       <label class="check" title="Pre-resolve domains via DoH so ip_cidr / IP rule-set rules can match the resolved address">
         <input type="checkbox" id="opt-assume" ${assume ? 'checked' : ''}/> Resolve IPs for IP rules
       </label>
-      <div class="field" style="max-width:150px;margin:0">
+      <div class="field" style="max-width:140px;margin:0">
         <select id="opt-network" title="Assumed connection network for rules that filter on tcp/udp">
           <option value="" ${network === '' ? 'selected' : ''}>network: any</option>
           <option value="tcp" ${network === 'tcp' ? 'selected' : ''}>network: tcp</option>
@@ -347,8 +352,10 @@ function updateGeoIndicator() {
   let txt = '', title = '';
   if (state.settings.geoEnabled) {
     if (s.status === 'loading') {
-      const pct = (typeof s.progress === 'number' && !isNaN(s.progress)) ? ' ' + Math.round(s.progress * 100) + '%' : '';
-      txt = '· Geo: downloading' + pct + '…';
+      let amt;
+      if (s.total > 0) amt = ' ' + Math.min(100, Math.round((s.loaded / s.total) * 100)) + '%';
+      else amt = ' ' + (s.loaded / 1048576).toFixed(1) + ' MB';
+      txt = '· Geo: downloading' + amt + '…';
     } else if (s.status === 'ready') {
       txt = '· Geo: qqwry ✓';
       title = 'IP geolocation via qqwry.ipdb';
@@ -564,6 +571,20 @@ function renderDecision(dec, kind) {
 }
 
 /* ---------------- settings ---------------- */
+// testDoH issues the same DoH JSON query the engine's resolver uses (a CORS
+// "simple request": GET with an Accept: application/dns-json header) so the
+// Settings dialog can confirm an endpoint actually resolves from the browser.
+async function testDoH(server) {
+  const u = new URL(server);
+  u.searchParams.set('name', 'example.com');
+  u.searchParams.set('type', '1');
+  u.searchParams.set('ct', 'application/dns-json');
+  const resp = await fetch(u.toString(), { headers: { Accept: 'application/dns-json' } });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const j = await resp.json();
+  return (j.Answer || []).filter((a) => a.type === 1).map((a) => a.data);
+}
+
 function openSettings() {
   const root = $('#modal-root');
   root.innerHTML = `
@@ -574,6 +595,10 @@ function openSettings() {
           <div class="field">
             <label class="lbl">HTTPS DNS (DoH) endpoint <span class="hint">DoH JSON API · must allow CORS</span></label>
             <input type="url" id="s-doh" value="${esc(state.settings.dohServer || '')}" placeholder="https://1.1.1.1/dns-query" />
+            <div class="row" style="gap:8px;margin-top:6px;align-items:center">
+              <button class="btn small" id="s-doh-test">Test resolver</button>
+              <span class="muted" id="s-doh-result"></span>
+            </div>
           </div>
           <div class="field">
             <label class="lbl">Quick presets</label>
@@ -604,6 +629,18 @@ function openSettings() {
   $('#s-close').onclick = close;
   $('#settings-backdrop').onclick = (e) => { if (e.target.id === 'settings-backdrop') close(); };
   root.querySelectorAll('.preset').forEach((b) => b.onclick = () => { $('#s-doh').value = b.dataset.url; });
+  $('#s-doh-test').onclick = async () => {
+    const server = $('#s-doh').value.trim() || 'https://1.1.1.1/dns-query';
+    const btn = $('#s-doh-test'), out = $('#s-doh-result');
+    btn.disabled = true; out.className = 'muted'; out.textContent = 'testing…';
+    try {
+      const ips = await testDoH(server);
+      if (ips.length) { out.className = 'ok-text'; out.textContent = '✓ example.com → ' + ips.join(', '); }
+      else { out.className = 'warn-text'; out.textContent = '⚠ responded, but no A records returned'; }
+    } catch (e) {
+      out.className = 'err-text'; out.textContent = '✗ ' + ((e && e.message) || 'request failed') + ' — check the URL / CORS';
+    } finally { btn.disabled = false; }
+  };
   $('#s-save').onclick = async () => {
     const dohServer = $('#s-doh').value.trim() || 'https://1.1.1.1/dns-query';
     const geoEnabled = $('#s-geo').checked;

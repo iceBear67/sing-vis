@@ -24,12 +24,12 @@ func fieldsFromRoute(r option.RawDefaultRule) matchFields {
 		srcPort:       r.SourcePort,
 		srcPortRange:  r.SourcePortRange,
 		network:       r.Network,
+		protocol:      r.Protocol,
 		ruleSet:       r.RuleSet,
 		rsMatchSource: r.RuleSetIPCIDRMatchSource || r.Deprecated_RulesetIPCIDRMatchSource,
 		invert:        r.Invert,
 	}
 	addUnknownList(&mf, "inbound", r.Inbound)
-	addUnknownList(&mf, "protocol", r.Protocol)
 	addUnknownList(&mf, "client", r.Client)
 	addUnknownList(&mf, "auth_user", r.AuthUser)
 	addUnknownList(&mf, "user", r.User)
@@ -77,6 +77,7 @@ func fieldsFromDNS(r option.RawDefaultDNSRule) matchFields {
 		srcPort:       r.SourcePort,
 		srcPortRange:  r.SourcePortRange,
 		network:       r.Network,
+		protocol:      r.Protocol,
 		queryType:     r.QueryType,
 		ruleSet:       r.RuleSet,
 		rsMatchSource: r.RuleSetIPCIDRMatchSource || r.Deprecated_RulesetIPCIDRMatchSource,
@@ -100,7 +101,6 @@ func fieldsFromDNS(r option.RawDefaultDNSRule) matchFields {
 		mf.dnsFilter = append(mf.dnsFilter, condKV{"match_response", "set"})
 	}
 	addUnknownList(&mf, "inbound", r.Inbound)
-	addUnknownList(&mf, "protocol", r.Protocol)
 	addUnknownList(&mf, "auth_user", r.AuthUser)
 	addUnknownList(&mf, "user", r.User)
 	addUnknownList(&mf, "outbound", r.Outbound)

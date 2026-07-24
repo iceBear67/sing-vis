@@ -28,6 +28,7 @@ type analyzeRequest struct {
 	RuleSetFiles   map[string]engine.RuleSetFile `json:"ruleSetFiles"`
 	DoHServer      string                        `json:"dohServer"`
 	Network        string                        `json:"network"`        // optional: tcp/udp assumption
+	Protocol       string                        `json:"protocol"`       // optional: sniffed-protocol assumption
 	AssumeResolved *bool                         `json:"assumeResolved"` // default true
 }
 
@@ -85,6 +86,7 @@ func runAnalyze(input string) (string, error) {
 		Inputs:         req.Inputs,
 		RuleSetFiles:   req.RuleSetFiles,
 		Network:        req.Network,
+		Protocol:       req.Protocol,
 		AssumeResolved: assumeResolved,
 		Resolver:       dnsx.NewDoHResolver(doh),
 	})

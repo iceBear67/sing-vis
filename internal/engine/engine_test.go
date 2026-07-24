@@ -247,6 +247,88 @@ func TestPortHint(t *testing.T) {
 	}
 }
 
+func TestProtocolHint(t *testing.T) {
+	cfg := `{"route":{"rules":[{"protocol":["tls"],"outbound":"proxy"}],"final":"direct"}}`
+
+	// Without an assumed protocol the rule stays undeterminable (unknown).
+	it := analyzeOne(t, cfg, "example.com", true, &fakeResolver{})
+	if st := condStatus(t, it, "protocol"); st != StatusUnknown {
+		t.Errorf("no protocol: status=%q, want unknown", st)
+	}
+
+	// With protocol=tls the rule matches and selects the outbound.
+	out, err := Analyze(context.Background(), Request{
+		Config: cfg, Inputs: []string{"example.com"}, AssumeResolved: true,
+		Protocol: "tls", Resolver: &fakeResolver{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	it = out.Inputs[0]
+	if d := routeOutbound(t, it); d.Outbound != "proxy" || d.FromFinal {
+		t.Errorf("protocol=tls: outbound=%q fromFinal=%v, want proxy/false", d.Outbound, d.FromFinal)
+	}
+	if st := condStatus(t, it, "protocol"); st != StatusMatch {
+		t.Errorf("protocol=tls: status=%q, want match", st)
+	}
+
+	// A different assumed protocol does not match → falls through to final.
+	out, _ = Analyze(context.Background(), Request{
+		Config: cfg, Inputs: []string{"example.com"}, AssumeResolved: true,
+		Protocol: "http", Resolver: &fakeResolver{},
+	})
+	it = out.Inputs[0]
+	if st := condStatus(t, it, "protocol"); st != StatusNoMatch {
+		t.Errorf("protocol=http: status=%q, want no_match", st)
+	}
+	if d := routeOutbound(t, it); d.Outbound != "direct" || !d.FromFinal {
+		t.Errorf("protocol=http: outbound=%q fromFinal=%v, want direct/final", d.Outbound, d.FromFinal)
+	}
+}
+
+func TestProtocolSchemeOverride(t *testing.T) {
+	cfg := `{"route":{"rules":[{"protocol":["rdp"],"outbound":"remote"}],"final":"direct"}}`
+
+	// A URL scheme on the line sets the protocol for that input, with no default.
+	it := analyzeOne(t, cfg, "rdp://10.0.0.5:3389", true, &fakeResolver{})
+	if it.Kind != "ip" {
+		t.Errorf("rdp://10.0.0.5:3389: kind=%q, want ip (host parsed, scheme/port stripped)", it.Kind)
+	}
+	if d := routeOutbound(t, it); d.Outbound != "remote" {
+		t.Errorf("rdp://10.0.0.5:3389: outbound=%q, want remote", d.Outbound)
+	}
+	if st := condStatus(t, it, "protocol"); st != StatusMatch {
+		t.Errorf("rdp://10.0.0.5:3389: protocol status=%q, want match", st)
+	}
+
+	// The per-line scheme overrides the request-level (toolbar) protocol.
+	out, err := Analyze(context.Background(), Request{
+		Config: cfg, Inputs: []string{"rdp://10.0.0.5:3389"}, AssumeResolved: true,
+		Protocol: "tls", Resolver: &fakeResolver{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := out.Inputs[0].Route.Decision; d.Outbound != "remote" {
+		t.Errorf("scheme override with Protocol=tls: outbound=%q, want remote", d.Outbound)
+	}
+
+	// A domain URL keeps its host and applies the scheme protocol.
+	it = analyzeOne(t, cfg, "rdp://desktop.example.com", true, &fakeResolver{})
+	if it.Kind != "domain" {
+		t.Errorf("rdp://desktop.example.com: kind=%q, want domain", it.Kind)
+	}
+	if st := condStatus(t, it, "protocol"); st != StatusMatch {
+		t.Errorf("rdp://desktop.example.com: protocol status=%q, want match", st)
+	}
+
+	// Without a scheme (and no default protocol) the same rule is undeterminable.
+	it = analyzeOne(t, cfg, "10.0.0.5:3389", true, &fakeResolver{})
+	if st := condStatus(t, it, "protocol"); st != StatusUnknown {
+		t.Errorf("10.0.0.5:3389 (no scheme): protocol status=%q, want unknown", st)
+	}
+}
+
 // condStatus returns the status of the first condition with the given field
 // across all route steps.
 func condStatus(t *testing.T, it InputTrace, field string) string {

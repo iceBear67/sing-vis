@@ -26,7 +26,8 @@
   let opts = { enabled: true, url: DEFAULT_URL };
   let db = null;            // parsed database (see parse())
   let status = 'idle';      // idle | loading | ready | error | disabled
-  let progress = 0;         // 0..1 during download (or NaN when total unknown)
+  let loaded = 0;           // bytes downloaded (decompressed) so far
+  let total = 0;            // reliable decompressed total, or 0 when unknown
   let error = '';
   let inflight = null;      // in-progress ensureLoaded() promise
   const listeners = new Set();
@@ -34,7 +35,9 @@
   function notify() { listeners.forEach((cb) => { try { cb(getStatus()); } catch {} }); }
   function setStatus(s) { status = s; notify(); }
 
-  function getStatus() { return { status, progress, error, build: db && db.meta.build }; }
+  function getStatus() {
+    return { status, loaded, total, progress: total > 0 ? loaded / total : NaN, error, build: db && db.meta.build };
+  }
   function onChange(cb) { listeners.add(cb); return () => listeners.delete(cb); }
 
   function configure(next) {
@@ -170,23 +173,28 @@
   async function fetchWithProgress(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const total = Number(res.headers.get('content-length')) || 0;
+    // content-length is the COMPRESSED size when the CDN sends the file with
+    // content-encoding (jsdelivr uses brotli), while the stream yields the
+    // decompressed bytes — so only trust it as a total when uncompressed. When
+    // compressed we report bytes downloaded (MB) instead of a bogus percentage.
+    const encoded = (res.headers.get('content-encoding') || '').trim();
+    const clen = Number(res.headers.get('content-length')) || 0;
+    total = (clen && !encoded) ? clen : 0;
     if (!res.body || !res.body.getReader) {
-      progress = NaN; notify();
-      return new Uint8Array(await res.arrayBuffer());
+      const buf = new Uint8Array(await res.arrayBuffer());
+      loaded = buf.length; notify();
+      return buf;
     }
     const reader = res.body.getReader();
     const chunks = [];
-    let received = 0;
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       chunks.push(value);
-      received += value.length;
-      progress = total ? received / total : NaN;
+      loaded += value.length;
       notify();
     }
-    const out = new Uint8Array(received);
+    const out = new Uint8Array(loaded);
     let at = 0;
     for (const c of chunks) { out.set(c, at); at += c.length; }
     return out;
@@ -194,7 +202,7 @@
 
   async function load() {
     setStatus('loading');
-    progress = 0; error = '';
+    loaded = 0; total = 0; error = '';
     const store = window.singvisStorage;
     try {
       let bytes = null;
