@@ -808,7 +808,7 @@ function openSettings() {
           <div class="field">
             <label class="lbl">Quick presets</label>
             <div class="row" style="gap:6px">
-              ${['https://1.1.1.1/dns-query', 'https://dns.google/dns-query', 'https://dns.quad9.net/dns-query', 'https://dns.alidns.com/dns-query']
+              ${['https://1.1.1.1/dns-query', 'https://sm2.doh.pub/dns-query']
                 .map((u) => `<button class="btn small preset" data-url="${esc(u)}">${esc(u.replace('https://', '').replace('/dns-query', ''))}</button>`).join('')}
             </div>
           </div>
