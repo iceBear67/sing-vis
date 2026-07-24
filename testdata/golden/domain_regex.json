@@ -1,0 +1,160 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "ads.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_regex=^ad[sx]?\\.",
+            "actionType": "route",
+            "actionText": "route → ad",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_regex",
+                "value": "^ad[sx]?\\.",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "^ad[sx]?\\."
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "ad",
+          "detail": "route → ad",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "adx.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_regex=^ad[sx]?\\.",
+            "actionType": "route",
+            "actionText": "route → ad",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_regex",
+                "value": "^ad[sx]?\\.",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "^ad[sx]?\\."
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "ad",
+          "detail": "route → ad",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "www.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_regex=^ad[sx]?\\.",
+            "actionType": "route",
+            "actionText": "route → ad",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_regex",
+                "value": "^ad[sx]?\\.",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "final",
+          "detail": "route → final",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

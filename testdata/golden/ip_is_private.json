@@ -1,0 +1,145 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "192.168.1.5",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_is_private=true",
+            "actionType": "route",
+            "actionText": "route → lan",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_is_private",
+                "value": "true",
+                "group": "dest_addr",
+                "status": "match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "wan",
+        "decision": {
+          "actionType": "route",
+          "outbound": "lan",
+          "detail": "route → lan",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "10.0.0.1",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_is_private=true",
+            "actionType": "route",
+            "actionText": "route → lan",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_is_private",
+                "value": "true",
+                "group": "dest_addr",
+                "status": "match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "wan",
+        "decision": {
+          "actionType": "route",
+          "outbound": "lan",
+          "detail": "route → lan",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "8.8.8.8",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "ip_is_private=true",
+            "actionType": "route",
+            "actionText": "route → lan",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_is_private",
+                "value": "true",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "wan",
+        "decision": {
+          "actionType": "route",
+          "outbound": "wan",
+          "detail": "route → wan",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "127.0.0.1",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_is_private=true",
+            "actionType": "route",
+            "actionText": "route → lan",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_is_private",
+                "value": "true",
+                "group": "dest_addr",
+                "status": "match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "wan",
+        "decision": {
+          "actionType": "route",
+          "outbound": "lan",
+          "detail": "route → lan",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "not a valid host!!",
+      "kind": "invalid",
+      "error": "not a valid domain or IP address"
+    }
+  ]
+}

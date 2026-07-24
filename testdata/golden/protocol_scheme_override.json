@@ -1,0 +1,129 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "rdp://10.0.0.5:3389",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "protocol=rdp",
+            "actionType": "route",
+            "actionText": "route → remote",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "protocol",
+                "value": "rdp",
+                "group": "other",
+                "status": "match",
+                "note": "assumed protocol \"rdp\""
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "remote",
+          "detail": "route → remote",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "rdp://desktop.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "protocol=rdp",
+            "actionType": "route",
+            "actionText": "route → remote",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "protocol",
+                "value": "rdp",
+                "group": "other",
+                "status": "match",
+                "note": "assumed protocol \"rdp\""
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "remote",
+          "detail": "route → remote",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "10.0.0.5:3389",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "protocol=rdp",
+            "actionType": "route",
+            "actionText": "route → remote",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "protocol",
+                "value": "rdp",
+                "group": "other",
+                "status": "no_match",
+                "note": "assumed protocol \"tls\""
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "direct",
+          "detail": "route → direct",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

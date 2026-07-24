@@ -1,0 +1,142 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "www.baidu.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "rule_set=cn",
+            "actionType": "route",
+            "actionText": "route → direct",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "rule_set",
+                "value": "cn",
+                "group": "rule_set",
+                "status": "match",
+                "ruleSet": {
+                  "tag": "cn",
+                  "type": "inline",
+                  "status": "match",
+                  "matchedIdx": 0,
+                  "rules": [
+                    {
+                      "index": 0,
+                      "type": "default",
+                      "status": "match",
+                      "summary": "domain_suffix=baidu.com",
+                      "actionType": "",
+                      "actionText": "",
+                      "terminal": false,
+                      "reached": false,
+                      "conditions": [
+                        {
+                          "field": "domain_suffix",
+                          "value": "baidu.com",
+                          "group": "dest_addr",
+                          "status": "match",
+                          "matched": "baidu.com"
+                        }
+                      ]
+                    }
+                  ],
+                  "count": 1
+                }
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "direct",
+          "detail": "route → direct",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "www.google.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "rule_set=cn",
+            "actionType": "route",
+            "actionText": "route → direct",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "rule_set",
+                "value": "cn",
+                "group": "rule_set",
+                "status": "no_match",
+                "ruleSet": {
+                  "tag": "cn",
+                  "type": "inline",
+                  "status": "no_match",
+                  "matchedIdx": -1,
+                  "count": 1
+                }
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

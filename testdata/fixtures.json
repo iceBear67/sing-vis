@@ -1,0 +1,228 @@
+{
+  "cases": [
+    {
+      "name": "domain_suffix",
+      "config": {"route":{"rules":[{"domain_suffix":["google.com"],"outbound":"proxy"}],"final":"direct"}},
+      "inputs": ["www.google.com", "example.org", "google.com"]
+    },
+    {
+      "name": "domain_suffix_leading_dot",
+      "config": {"route":{"rules":[{"domain_suffix":[".com.cn"],"outbound":"cn"},{"domain_suffix":["sagernet.org"],"outbound":"sn"}],"final":"direct"}},
+      "inputs": ["example.com.cn", "com.cn", "sagernet.org", "sing-box.sagernet.org"]
+    },
+    {
+      "name": "domain_exact",
+      "config": {"route":{"rules":[{"domain":["example.com","EXAMPLE.ORG"],"outbound":"hit"}],"final":"miss"}},
+      "inputs": ["example.com", "www.example.com", "example.org"]
+    },
+    {
+      "name": "domain_keyword",
+      "config": {"route":{"rules":[{"domain_keyword":["goog"],"outbound":"kw"}],"final":"final"}},
+      "inputs": ["www.google.com", "example.org"]
+    },
+    {
+      "name": "domain_regex",
+      "config": {"route":{"rules":[{"domain_regex":["^ad[sx]?\\."],"outbound":"ad"}],"final":"final"}},
+      "inputs": ["ads.example.com", "adx.example.com", "www.example.com"]
+    },
+    {
+      "name": "inline_ruleset",
+      "config": {"route":{"rules":[{"rule_set":["cn"],"outbound":"direct"}],"rule_set":[{"type":"inline","tag":"cn","rules":[{"domain_suffix":["baidu.com"]}]}],"final":"proxy"}},
+      "inputs": ["www.baidu.com", "www.google.com"]
+    },
+    {
+      "name": "inline_ruleset_multi_tag_or",
+      "config": {"route":{"rules":[{"rule_set":["a","b"],"outbound":"either"}],"rule_set":[{"type":"inline","tag":"a","rules":[{"domain_suffix":["a.com"]}]},{"type":"inline","tag":"b","rules":[{"domain_keyword":["bbb"]}]}],"final":"none"}},
+      "inputs": ["x.a.com", "host.bbb.net", "other.net"]
+    },
+    {
+      "name": "logical_or",
+      "config": {"route":{"rules":[{"type":"logical","mode":"or","rules":[{"domain_suffix":["a.com"]},{"domain_suffix":["b.com"]}],"outbound":"ab"}],"final":"final"}},
+      "inputs": ["x.a.com", "y.b.com", "z.c.com"]
+    },
+    {
+      "name": "logical_and_invert",
+      "config": {"route":{"rules":[{"type":"logical","mode":"and","invert":true,"rules":[{"domain_suffix":["google.com"]}],"outbound":"not-google"}],"final":"proxy"}},
+      "inputs": ["example.com", "www.google.com"]
+    },
+    {
+      "name": "resolve_then_ipcidr",
+      "config": {"route":{"rules":[{"domain_suffix":["example.com"],"action":"resolve"},{"ip_cidr":["1.2.3.0/24"],"outbound":"matched-ip"}],"final":"proxy"}},
+      "inputs": ["host.example.com", "other.example.com"],
+      "assumeResolved": false,
+      "dns": {"host.example.com":{"ipv4":["1.2.3.4"]}, "other.example.com":{"ipv4":["9.9.9.9"]}}
+    },
+    {
+      "name": "assume_resolved_ipcidr",
+      "config": {"route":{"rules":[{"ip_cidr":["1.2.3.0/24"],"outbound":"matched-ip"}],"final":"proxy"}},
+      "inputs": ["host.example.com", "other.example.com"],
+      "assumeResolved": true,
+      "dns": {"host.example.com":{"ipv4":["1.2.3.4"]}, "other.example.com":{"ipv4":["9.9.9.9"]}}
+    },
+    {
+      "name": "ipcidr_unknown_without_resolve",
+      "config": {"route":{"rules":[{"ip_cidr":["1.2.3.0/24"],"outbound":"matched-ip"}],"final":"proxy"}},
+      "inputs": ["host.example.com"],
+      "assumeResolved": false,
+      "dns": {"host.example.com":{"ipv4":["1.2.3.4"]}}
+    },
+    {
+      "name": "ip_is_private",
+      "config": {"route":{"rules":[{"ip_is_private":true,"outbound":"lan"}],"final":"wan"}},
+      "inputs": ["192.168.1.5", "10.0.0.1", "8.8.8.8", "127.0.0.1"]
+    },
+    {
+      "name": "raw_ipv4",
+      "config": {"route":{"rules":[{"ip_cidr":["10.0.0.0/8"],"outbound":"lan"}],"final":"wan"}},
+      "inputs": ["10.1.2.3", "8.8.8.8"]
+    },
+    {
+      "name": "raw_ipv6",
+      "config": {"route":{"rules":[{"ip_cidr":["2001:db8::/32"],"outbound":"v6net"}],"final":"other"}},
+      "inputs": ["2001:db8::1", "2606:4700:4700::1111", "[2001:db8::5]:443"]
+    },
+    {
+      "name": "port_hint",
+      "config": {"route":{"rules":[{"port":[443],"outbound":"proxy"}],"final":"direct"}},
+      "inputs": ["example.com:443", "example.com:80", "example.com"]
+    },
+    {
+      "name": "port_range",
+      "config": {"route":{"rules":[{"port_range":["8000:9000"],"outbound":"proxy"}],"final":"direct"}},
+      "inputs": ["example.com:8080", "example.com:9001", "example.com"]
+    },
+    {
+      "name": "protocol_hint",
+      "config": {"route":{"rules":[{"protocol":["tls"],"outbound":"proxy"}],"final":"direct"}},
+      "inputs": ["example.com"],
+      "protocol": "tls"
+    },
+    {
+      "name": "protocol_hint_none",
+      "config": {"route":{"rules":[{"protocol":["tls"],"outbound":"proxy"}],"final":"direct"}},
+      "inputs": ["example.com"]
+    },
+    {
+      "name": "protocol_scheme_override",
+      "config": {"route":{"rules":[{"protocol":["rdp"],"outbound":"remote"}],"final":"direct"}},
+      "inputs": ["rdp://10.0.0.5:3389", "rdp://desktop.example.com", "10.0.0.5:3389"],
+      "protocol": "tls"
+    },
+    {
+      "name": "network_hint",
+      "config": {"route":{"rules":[{"network":["udp"],"outbound":"udp-out"}],"final":"direct"}},
+      "inputs": ["example.com"],
+      "network": "udp"
+    },
+    {
+      "name": "network_hint_unknown",
+      "config": {"route":{"rules":[{"network":["udp"],"outbound":"udp-out"}],"final":"direct"}},
+      "inputs": ["example.com"]
+    },
+    {
+      "name": "source_and_process_unknown",
+      "config": {"route":{"rules":[{"source_ip_cidr":["192.168.0.0/16"],"process_name":["curl"],"outbound":"x"}],"final":"final"}},
+      "inputs": ["example.com"]
+    },
+    {
+      "name": "route_actions",
+      "config": {"route":{"rules":[{"domain":["reject.me"],"action":"reject"},{"domain":["hijack.me"],"action":"hijack-dns"},{"domain":["direct.me"],"action":"direct"}],"final":"proxy"}},
+      "inputs": ["reject.me", "hijack.me", "direct.me", "other.me"]
+    },
+    {
+      "name": "route_options_nonterminal",
+      "config": {"route":{"rules":[{"domain":["a.me"],"action":"route-options","udp_disable_domain_unmapping":true},{"domain":["a.me"],"outbound":"real"}],"final":"final"}},
+      "inputs": ["a.me"]
+    },
+    {
+      "name": "dns_server_selection",
+      "config": {"dns":{"servers":[{"tag":"proxy-dns","type":"https","server":"1.1.1.1","detour":"proxy"},{"tag":"local-dns","type":"udp","server":"223.5.5.5","detour":"direct"}],"rules":[{"domain_suffix":["cn.example"],"server":"local-dns"}],"final":"proxy-dns"}},
+      "inputs": ["site.cn.example", "other.example"]
+    },
+    {
+      "name": "dns_reject_and_predefined",
+      "config": {"dns":{"servers":[{"tag":"a","type":"udp","server":"1.1.1.1"}],"rules":[{"domain_keyword":["ads"],"action":"reject"},{"domain":["fixed.me"],"action":"predefined"}],"final":"a"}},
+      "inputs": ["ads.example.com", "fixed.me", "clean.com"]
+    },
+    {
+      "name": "dns_no_rules_uses_first_server",
+      "config": {"dns":{"servers":[{"tag":"first","type":"udp","server":"1.1.1.1","detour":"direct"},{"tag":"second","type":"udp","server":"8.8.8.8"}],"rules":[]}},
+      "inputs": ["anything.com"]
+    },
+    {
+      "name": "dns_query_type",
+      "config": {"dns":{"servers":[{"tag":"a","type":"udp","server":"1.1.1.1"},{"tag":"b","type":"udp","server":"8.8.8.8"}],"rules":[{"query_type":["A"],"server":"b"}],"final":"a"}},
+      "inputs": ["host.com"]
+    },
+    {
+      "name": "final_fallback_empty",
+      "config": {"route":{"rules":[{"domain":["nope.me"],"outbound":"x"}]}},
+      "inputs": ["other.me"]
+    },
+    {
+      "name": "invalid_input",
+      "config": {"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["not a valid host!!", "", "# comment line"]
+    },
+    {
+      "name": "local_source_ruleset",
+      "config": {"route":{"rules":[{"rule_set":["local-cn"],"outbound":"direct"}],"rule_set":[{"type":"local","tag":"local-cn","format":"source","path":"cn.json"}],"final":"proxy"}},
+      "inputs": ["www.qq.com", "www.google.com"],
+      "ruleSetFiles": {"local-cn": {"format":"source","data":{"version":2,"rules":[{"domain_suffix":["qq.com"]}]}}}
+    },
+    {
+      "name": "ruleset_headless_logical",
+      "config": {"route":{"rules":[{"rule_set":["combo"],"outbound":"hit"}],"rule_set":[{"type":"inline","tag":"combo","rules":[{"type":"logical","mode":"and","rules":[{"domain_suffix":["example.com"]},{"domain_keyword":["cdn"]}]}]}],"final":"miss"}},
+      "inputs": ["cdn.example.com", "www.example.com"]
+    },
+    {
+      "name": "ruleset_missing",
+      "config": {"route":{"rules":[{"rule_set":["ghost"],"outbound":"x"}],"final":"final"}},
+      "inputs": ["example.com"]
+    },
+    {
+      "name": "domain_casefold_matched",
+      "config": {"route":{"rules":[{"domain":["Example.com","example.com"],"outbound":"hit"}],"final":"miss"}},
+      "inputs": ["example.com"]
+    },
+    {
+      "name": "joinvals_truncation",
+      "config": {"route":{"rules":[{"domain_suffix":["a.com","b.com","c.com","d.com","e.com","f.com"],"outbound":"many"}],"final":"final"}},
+      "inputs": ["x.e.com", "nope.net"]
+    },
+    {
+      "name": "summary_truncation",
+      "config": {"route":{"rules":[{"domain_keyword":["this-is-a-very-long-keyword-that-exceeds-forty-characters-for-sure"],"outbound":"lk"}],"final":"final"}},
+      "inputs": ["host.net"]
+    },
+    {
+      "name": "multi_ipcidr",
+      "config": {"route":{"rules":[{"ip_cidr":["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16","1.2.3.0/24","4.4.0.0/16"],"outbound":"m"}],"final":"final"}},
+      "inputs": ["4.4.4.4"],
+      "dns": {}
+    },
+    {
+      "name": "v6_resolve_prefer_ipv6",
+      "config": {"route":{"rules":[{"domain_suffix":["example.com"],"action":"resolve","strategy":"prefer_ipv6"},{"ip_cidr":["2001:db8::/32"],"outbound":"v6hit"}],"final":"proxy"}},
+      "inputs": ["host.example.com"],
+      "assumeResolved": false,
+      "dns": {"host.example.com":{"ipv4":["1.1.1.1"],"ipv6":["2001:db8::99"]}}
+    },
+    {
+      "name": "dns_query_type_numeric",
+      "config": {"dns":{"servers":[{"tag":"a","type":"udp","server":"1.1.1.1"},{"tag":"b","type":"udp","server":"8.8.8.8"}],"rules":[{"query_type":[28],"server":"b"},{"query_type":["A"],"server":"a"}],"final":"a"}},
+      "inputs": ["host.com"]
+    },
+    {
+      "name": "port_range_open_ended",
+      "config": {"route":{"rules":[{"port_range":["1024:"],"outbound":"high"},{"port_range":[":1023"],"outbound":"low"}],"final":"final"}},
+      "inputs": ["h.com:8080", "h.com:80", "h.com"]
+    },
+    {
+      "name": "dns_domain_and_route",
+      "config": {"dns":{"servers":[{"tag":"cn","type":"udp","server":"223.5.5.5","detour":"direct"},{"tag":"proxy","type":"https","server":"1.1.1.1","detour":"px"}],"rules":[{"domain_suffix":["cn.com"],"server":"cn"}],"final":"proxy"},"route":{"rules":[{"domain_suffix":["cn.com"],"outbound":"direct"}],"final":"px"}},
+      "inputs": ["www.cn.com", "www.us.com"],
+      "dns": {"www.cn.com":{"ipv4":["203.0.113.1"]}, "www.us.com":{"ipv4":["93.184.216.34"]}}
+    }
+  ]
+}

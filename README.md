@@ -2,27 +2,29 @@
 
 A web app that explains **how a [sing-box](https://github.com/SagerNet/sing-box) configuration routes a domain or IP**. Paste a sing-box JSON config, enter a list of domains/IPs, and sing-vis shows — for each one — which DNS rule and route rule it hits, every condition evaluated along the way, and the final DNS server and outbound.
 
-It runs **entirely in your browser**: the matching engine is sing-box's own Go code compiled to WebAssembly. There is no backend, nothing is uploaded, and you can host it as static files (including on GitHub Pages).
+It runs **entirely in your browser**: the matching engine is plain JavaScript, so there is no backend, nothing is uploaded, and you can host it as static files (including on GitHub Pages). The only WebAssembly is a tiny module that decodes sing-box's binary `.srs` rule-set format, and it's downloaded lazily — only if a config you analyze actually uses one.
 
 ![overview](docs-shot.png)
 
 ## Quick start
 
-Requires Go (the module targets `go 1.24.7`; the default `GOTOOLCHAIN=auto` fetches a matching toolchain automatically). No Node/npm — the frontend has no build step.
+No build step, no toolchain — the frontend is static files with no dependencies:
 
 ```bash
-./run.sh                 # builds the wasm engine, serves http://127.0.0.1:8787
+./run.sh                 # serves http://127.0.0.1:8787
 ./run.sh 9000            # custom port
 ./run.sh 0.0.0.0:9000    # custom host:port (expose on your LAN)
 ```
 
-Open the printed URL. That's it.
+Open the printed URL. That's it. (`run.sh` just starts `python3 -m http.server` over `web/` — any static server works.)
+
+The one optional piece is **binary (`.srs`) rule-set support**, which needs a small WebAssembly decoder. If you want it, run `./build.sh` once (requires Go) to produce `web/srs.wasm`; see [Building & hosting](#building--hosting). Everything else works with no Go at all.
 
 ## Using it
 
 1. **Paste a config.** The editor opens pre-filled with a sample. Replace it with your own sing-box JSON in the config box (JSONC comments are fine), and give the profile a name.
 2. **List what to check.** In *Domains / IPs to check*, put one host per line — domains (`www.google.com`) or raw IPs (`1.1.1.1`). Lines starting with `#` are ignored. Pasted URLs and `host:port` strings are accepted; a trailing `:port` (e.g. `example.com:443`, `[2606:4700:4700::1111]:853`) is **used** to evaluate `port` / `port_range` rules that would otherwise be undeterminable — omit it to leave those rules `UNKNOWN?`. A leading scheme (e.g. `rdp://10.0.0.5:3389`, `tls://example.com`) sets that line's assumed **protocol**, so `protocol` rules can be evaluated instead of shown as `UNKNOWN?`. Both the config box and this list are syntax-highlighted as you type.
-3. **Click ▶ Analyze.** The first run downloads the ~3.3 MB wasm engine (cached afterwards). For every input you get:
+3. **Click ▶ Analyze.** For every input you get:
    - **DNS routing** — which `dns.rules` rule matches, the resulting DNS **server** (or `reject`/other action), and the outbound **detour** that server is reached through.
    - **Route matching** — every `route.rules` rule in order, each condition's result (**match** / no match / **`UNKNOWN?`**), which `rule_set` matched and on which headless rule, down to the **final outbound**.
    - **Resolved IPs** — the A/AAAA records fetched via DoH (shown when a domain is resolved).
@@ -47,32 +49,33 @@ Some rule conditions depend on live connection attributes that don't exist for a
 - **remote** — fetched live from its `url` (source `.json` or binary `.srs`, auto-detected). The URL must allow CORS (GitHub raw does).
 - **local** — the browser can't read disk paths, so upload the file under *Local rule-set files* in the editor, keyed by the rule-set **tag** or its **path**. `.srs` is read as binary; anything else as source JSON.
 
+Binary (`.srs`) rule sets are decoded by `web/srs.wasm` (loaded on demand). Since the decoder recovers the compiled rules back to their source form, sing-vis shows the **actual domains and CIDRs** a `.srs` set contains rather than an opaque "compiled set".
+
 ### IP geolocation
 
 Every IP in the results — resolved addresses and raw-IP inputs alike — is annotated with a country flag and location (归属地) from the [metowolf/qqwry.ipdb](https://github.com/metowolf/qqwry.ipdb) database (IPIP.net `ipdb` format, IPv4 + IPv6; the flag comes from its ISO-3166 `country_code` field). The ~37 MB database is downloaded once from a CDN (default `https://cdn.jsdelivr.net/npm/qqwry.ipdb/qqwry.ipdb`), cached in your browser (IndexedDB), and queried entirely locally — **no IP is ever sent anywhere**. Toggle it off, or point it at a different `ipdb`-format URL, under **⚙ Settings**. The URL must allow CORS (the jsdelivr default does).
 
 ## Why it's faithful
 
-Rather than re-implement sing-box's matching, sing-vis **imports sing-box's own Go packages** for the version-sensitive parts:
+sing-vis reproduces sing-box's matching **semantics**, not a paraphrase of them, and keeps itself honest two ways:
 
-- `option` — parses the config with sing-box's real unmarshalers (rule/action/rule-set dispatch, JSONC).
-- `common/srs` — reads the binary `.srs` format (compiled domain succinct-sets and IP sets).
-- `sing/common/domain` — the actual succinct-set domain/suffix matcher (the same code `route/rule.DomainItem` wraps).
+- **The version-sensitive binary format reuses sing-box's own code.** The `.srs` decoder (`cmd/srsdecode`, compiled to `web/srs.wasm`) imports sing-box's `common/srs` reader and `sing/common/domain` succinct-set matcher and calls `srs.Read(recover: true)` — the upstream code path — to recover a compiled rule set back to plain `domain` / `domain_suffix` / `ip_cidr` rules. The hard, versioned binary parsing therefore tracks upstream by bumping the submodule.
+- **The matcher is checked against sing-box's real engine.** The JS engine's output is verified field-for-field against a Go "oracle" (`internal/engine` + `cmd/goldgen`, which imports sing-box's `option` parser) over a suite of golden fixtures. Domain suffix/keyword semantics, first-terminal-match-wins, the `resolve → ip_cidr` lifecycle, `and`/`or`/`invert`, and the `final` fallback are all pinned by those tests.
 
-sing-vis owns only the **orchestration** — AND across fields / OR within a field's array / logical `and`·`or` / `invert`, first-terminal-match-wins, the `resolve → ip_cidr` lifecycle, and the `final` fallback — so it can **instrument** every step and report exactly which condition and rule-set matched.
+The JS engine owns the **orchestration** (AND across fields / OR within a field's array / logical rules / rule-set evaluation / DNS-then-route), which lets it **instrument** every step and report exactly which condition and rule-set matched. It deliberately reimplements the small, documented matchers (domain suffix/keyword/regex, CIDR containment, port ranges) in JavaScript rather than shipping sing-box's whole dependency tree to the browser.
 
-> The engine deliberately does **not** import sing-box's `adapter` / `route/rule` packages: they pull in the full outbound/dialer/sing-tun tree, which doesn't compile for `wasm`. The only rule fields needing a connection context are `domain` / `network` / `query_type` — the domain matcher is called directly on `sing/common/domain` (identical to `route/rule.DomainItem`), and network / query_type are plain membership tests. See `internal/engine/conditions.go`.
+> One intentional difference: for `.srs` rule sets, sing-box internally matches with an opaque compiled succinct-set, whereas sing-vis matches (and displays) the recovered source domains/CIDRs. The match results are identical; sing-vis just shows you the real values.
 
 ## Building & hosting
 
-`./run.sh` is just `./build.sh` followed by a static file server. To build and serve separately:
+The site itself needs **no build** — `web/` is ready to serve as-is. The only build step produces the optional `.srs` decoder:
 
 ```bash
-./build.sh                          # -> web/singvis.wasm (+ .gz) and web/wasm_exec.js
+./build.sh                          # -> web/srs.wasm (+ .gz) and web/wasm_exec.js  (needs Go)
 python3 -m http.server -d web 8787  # or any static server
 ```
 
-After `build.sh`, the `web/` directory is completely self-contained. To publish on **GitHub Pages**, serve `web/` (commit it, or copy it to a `gh-pages` branch / `docs/` folder). The built `web/singvis.wasm`, `web/singvis.wasm.gz`, and `web/wasm_exec.js` are generated artifacts (gitignored); regenerate them any time with `./build.sh`.
+After `build.sh`, the `web/` directory is completely self-contained. To publish on **GitHub Pages**, serve `web/` (commit it, or copy it to a `gh-pages` branch / `docs/` folder). `web/srs.wasm`, `web/srs.wasm.gz`, and `web/wasm_exec.js` are generated artifacts (gitignored); regenerate them any time with `./build.sh`, or commit them so your host needs no Go. If you never analyze configs with binary (`.srs`) rule sets, you can skip the build entirely.
 
 ### The wasm build overlay
 
@@ -80,11 +83,17 @@ Three files in the `sing` dependency (`common/buf/buffer_unix.go`, `common/bufio
 
 ## Testing
 
-The engine is platform-agnostic and tested natively (no wasm needed):
+The JS engine is verified against the Go oracle and via end-to-end tests (Node ≥ 20 for the JS tests; Go for the oracle and decoder):
 
 ```bash
-go test ./internal/engine
+go test ./internal/engine            # the Go oracle's own unit tests
+go run ./cmd/goldgen                 # (re)generate testdata/golden/*.json from the Go engine
+node test/run.mjs                    # JS engine vs golden, field-for-field (source rule sets)
+node test/srs.mjs                    # binary (.srs) decode → match, end-to-end
+node test/browser.mjs                # full worker stack: real srs.wasm + mocked fetch
 ```
+
+`go run ./cmd/goldgen -check` fails if the golden files drift from the Go engine — run it after bumping the sing-box submodule, then re-run `node test/run.mjs` to confirm the JS engine still matches.
 
 ## CORS
 
@@ -93,23 +102,26 @@ DoH resolution, remote rule-set fetches and the geo-database download originate 
 ## Project layout
 
 ```
-cmd/wasm/          js/wasm entry point: exposes singvisAnalyze() to JS
-internal/engine/   the matching engine (platform-agnostic, unit-tested)
-  parse.go           config → option structs (route/dns rules, rule sets, servers)
-  conditions.go      per-condition tri-state evaluation (match/no_match/unknown)
-  rules.go           field extraction + logical-rule recursion
-  ruleset.go         inline/remote/local rule-set loading (incl. .srs binary) + eval
-  route.go           route-rule orchestration (actions, resolve, final)
-  dns.go             dns-rule orchestration (actions, dns.final, server → detour)
-  analyze.go         top-level per-input driver
-internal/dnsx/     DoH (JSON API) resolver
 web/               static single-page frontend (no build step)
   index.html         markup
-  app.js             UI + rendering
+  app.js             UI + rendering (consumes the engine's Result JSON)
   editor.js          JSON / host-list syntax highlighting (transparent-textarea overlay)
   geoip.js           qqwry.ipdb (IPIP.net ipdb format) reader for IP geolocation
   storage.js         profiles, settings & cached geo database in IndexedDB
-  worker.js          Web Worker: loads the wasm engine, runs analyze off the UI thread
+  worker.js          Web Worker: loads the JS engine, runs analyze off the UI thread
+  engine/            the pure-JS matching engine
+    ip.js              IP parse + CIDR / is-private (netip-faithful, IPv4 + IPv6)
+    parse.js           JSONC → normalized route/DNS rules, rule sets, servers
+    engine.js          conditions, rules, rule-set eval, route/dns orchestration, analyze
+    browser.js         browser deps: DoH resolver, remote fetch, lazy srs.wasm loader
+  srs.wasm           .srs decoder (built by build.sh; lazy-loaded; gitignored)
+
+cmd/srsdecode/     .srs → source-rules decoder: wasm entry (browser) + native CLI (tests)
+internal/engine/   the Go "oracle" engine (imports sing-box's option parser); test-only
+internal/dnsx/     DoH (JSON API) resolver used by the oracle
+cmd/goldgen/       runs the oracle over testdata/fixtures.json → testdata/golden/*.json
+test/              Node parity + end-to-end tests for the JS engine
+testdata/          fixtures.json (shared) + golden/*.json (from the oracle)
 wasmbuild/         wasm build support (overlay generator + unix→wasm stubs)
 sing-box/          upstream sing-box clone (imported via a go.mod replace)
 ```

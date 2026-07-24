@@ -1,0 +1,81 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "host.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "query_type=AAAA",
+            "actionType": "route",
+            "actionText": "route → server b",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "query_type",
+                "value": "AAAA",
+                "group": "other",
+                "status": "no_match",
+                "note": "evaluated for the DNS query type shown"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "query_type=A",
+            "actionType": "route",
+            "actionText": "route → server a",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "query_type",
+                "value": "A",
+                "group": "other",
+                "status": "match",
+                "matched": "A",
+                "note": "evaluated for the DNS query type shown"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": 1,
+        "final": "a",
+        "decision": {
+          "actionType": "route",
+          "server": "a",
+          "detail": "route → server a",
+          "serverInfo": {
+            "tag": "a",
+            "type": "udp",
+            "address": "1.1.1.1"
+          },
+          "fromFinal": false,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

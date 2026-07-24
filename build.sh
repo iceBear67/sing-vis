@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
-# Builds the sing-vis WebAssembly engine and stages the static site under web/.
-# After this runs, web/ is fully self-contained and can be served by any static
-# file server (including GitHub Pages) — there is no backend.
+# Builds the small .srs decoder WebAssembly module (web/srs.wasm).
+#
+# The sing-vis matching engine is pure JavaScript (web/engine/*.js) and needs no
+# build step. The ONLY Go/wasm that remains is a tiny decoder for sing-box's
+# binary rule-set format (.srs): it recovers a compiled rule set back to plain
+# source rules, which the JS engine then matches. It is loaded by the browser
+# lazily — only when a config actually uses a binary rule set — so you only need
+# to run this if you want `.srs` support. Everything else works with no Go at all
+# (just serve web/ statically; see run.sh).
 set -euo pipefail
 
 cd "$(dirname "$0")"
+export GOTOOLCHAIN=auto   # go.mod needs go >= 1.24.7; auto-fetches the toolchain
 
-# The engine's Go dependency sing contains three source files that reference
-# golang.org/x/sys/unix, which has no GOARCH=wasm equivalent:
-#   common/buf/buffer_unix.go, common/bufio/vectorised_unix.go,
-#   common/bufio/copy_direct_posix.go
-# We can't patch them where they live: the module cache is read-only and, since
-# go1.25, `go build -overlay` refuses to replace files beneath GOMODCACHE. So we
-# materialize a writable copy of the sing module outside the cache, drop the
-# wasm-safe stubs from wasmbuild/_stubs over those three files, and build the wasm
-# against an alternate module file that `replace`s sing with the patched copy.
-# Native builds and tests use the unmodified go.mod and the real sing — none of
-# this touches them. All the files below are gitignored build artifacts.
+# The srs decoder imports sing's varbin, which transitively pulls in
+# common/buf and common/bufio — three files there reference golang.org/x/sys/unix
+# (raw-socket readv/writev), which has no GOARCH=wasm equivalent and never runs in
+# a browser anyway. The module cache is read-only and go1.25+ refuses to overlay
+# files beneath GOMODCACHE, so we materialize a writable copy of the sing module,
+# drop wasm-safe stubs over those three files, and build against an alternate
+# module file that `replace`s sing with the patched copy. Native builds and
+# `go test` use the unmodified go.mod and the real sing — untouched.
 go mod download github.com/sagernet/sing
 singdir="$(go list -m -f '{{.Dir}}' github.com/sagernet/sing)"
 singver="$(go list -m -f '{{.Version}}' github.com/sagernet/sing)"
@@ -34,19 +38,16 @@ if [ "$(cat "$work/.version" 2>/dev/null || true)" != "$singver" ]; then
 	printf '%s\n' "$singver" > "$work/.version"
 fi
 
-# Alternate module file pointing sing at the patched copy. Regenerated each build
-# so it tracks go.mod/go.sum; removed on exit.
 trap 'rm -f go.wasm.mod go.wasm.sum' EXIT
 cp go.mod go.wasm.mod
 cp go.sum go.wasm.sum
 printf '\nreplace github.com/sagernet/sing => %s\n' "$work" >> go.wasm.mod
 
-echo "building web/singvis.wasm (GOOS=js GOARCH=wasm)…"
+echo "building web/srs.wasm (GOOS=js GOARCH=wasm)…"
 GOOS=js GOARCH=wasm go build -modfile=go.wasm.mod -trimpath -ldflags="-s -w" \
-	-o web/singvis.wasm ./cmd/wasm
+	-o web/srs.wasm ./cmd/srsdecode
 
-# Ship the Go runtime's JS support shim next to the wasm. Newer Go keeps it under
-# lib/wasm; older layouts use misc/wasm.
+# Ship the Go runtime's JS support shim next to the wasm.
 goroot="$(go env GOROOT)"
 if [ -f "$goroot/lib/wasm/wasm_exec.js" ]; then
 	cp "$goroot/lib/wasm/wasm_exec.js" web/wasm_exec.js
@@ -57,13 +58,12 @@ else
 	exit 1
 fi
 
-# Pre-compress for static hosts that serve .gz when present (the wasm is large;
-# gzip roughly quarters it).
+# Pre-compress for static hosts that serve .gz when present.
 if command -v gzip >/dev/null 2>&1; then
-	gzip -9 -f -k web/singvis.wasm
+	gzip -9 -f -k web/srs.wasm
 fi
 
-size="$(du -h web/singvis.wasm | cut -f1)"
-gzsize="$( [ -f web/singvis.wasm.gz ] && du -h web/singvis.wasm.gz | cut -f1 || echo n/a )"
-echo "done. web/singvis.wasm=$size (gz=$gzsize), web/wasm_exec.js copied."
-echo "serve the web/ directory statically, e.g.:  ./run.sh"
+size="$(du -h web/srs.wasm | cut -f1)"
+gzsize="$( [ -f web/srs.wasm.gz ] && du -h web/srs.wasm.gz | cut -f1 || echo n/a )"
+echo "done. web/srs.wasm=$size (gz=$gzsize), web/wasm_exec.js copied."
+echo "the JS engine needs no build; serve web/ statically (see run.sh)."

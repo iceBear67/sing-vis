@@ -6,9 +6,11 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
-/* ---------------- wasm engine worker ---------------- */
-// The matching engine runs as WebAssembly inside a Web Worker. It is loaded
-// lazily on the first Analyze (the wasm is several MB) and reused thereafter.
+/* ---------------- engine worker ---------------- */
+// The matching engine is pure JavaScript running inside a Web Worker (to keep
+// DoH resolution and matching off the UI thread). It is ready immediately; a
+// small .srs decoder wasm is loaded lazily by the worker only if a config uses a
+// binary rule set. The worker is spun up on the first Analyze and reused.
 const engineWorker = (() => {
   let worker = null;
   let readyPromise = null;
@@ -313,8 +315,7 @@ async function analyze() {
   if (state.settings.geoEnabled && window.singvisGeo) { singvisGeo.ensureLoaded(); updateGeoIndicator(); }
   const btn = $('#btn-analyze');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Analyzing…';
-  const loadingEngine = !engineWorker.ready;
-  $('#results').innerHTML = `<div class="placeholder"><span class="spinner"></span> ${loadingEngine ? 'Loading engine (first run, ~a few MB)…' : 'Resolving &amp; matching…'}</div>`;
+  $('#results').innerHTML = `<div class="placeholder"><span class="spinner"></span> Resolving &amp; matching…</div>`;
   try {
     const result = await engineWorker.analyze({
       config: d.config,

@@ -1,0 +1,163 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "example.com:443",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "port=443",
+            "actionType": "route",
+            "actionText": "route → proxy",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port",
+                "value": "443",
+                "group": "dest_port",
+                "status": "match",
+                "matched": "443",
+                "note": "destination port 443 (from input)"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "example.com:80",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "port=443",
+            "actionType": "route",
+            "actionText": "route → proxy",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port",
+                "value": "443",
+                "group": "dest_port",
+                "status": "no_match",
+                "note": "destination port 80 (from input)"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "direct",
+          "detail": "route → direct",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "unknown",
+            "summary": "port=443",
+            "actionType": "route",
+            "actionText": "route → proxy",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port",
+                "value": "443",
+                "group": "dest_port",
+                "status": "unknown",
+                "note": "destination port is not part of the query (add :port to the input to check)"
+              }
+            ],
+            "effect": "could match here if its undetermined conditions hold"
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "direct",
+          "detail": "route → direct",
+          "fromFinal": true,
+          "assumed": true
+        }
+      }
+    }
+  ]
+}

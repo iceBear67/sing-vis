@@ -1,7 +1,8 @@
 # Build artifacts produced by build.sh (reproducible; regenerate with ./build.sh).
-# Remove these lines if you want to commit the built site (e.g. for GitHub Pages).
-web/singvis.wasm
-web/singvis.wasm.gz
+# Only needed for binary (.srs) rule-set support. Remove these lines if you want
+# to commit them so static hosting needs no Go at all (e.g. for GitHub Pages).
+web/srs.wasm
+web/srs.wasm.gz
 web/wasm_exec.js
 
 # wasm build scratch: patched copy of the sing module + its alternate module file

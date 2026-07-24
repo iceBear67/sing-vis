@@ -1,0 +1,41 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "4.4.4.4",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_cidr=10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/1…",
+            "actionType": "route",
+            "actionText": "route → m",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 1.2.3.0/24, …(+1)",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "4.4.0.0/16"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "m",
+          "detail": "route → m",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

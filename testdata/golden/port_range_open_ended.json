@@ -1,0 +1,203 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "h.com:8080",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "port_range=1024:",
+            "actionType": "route",
+            "actionText": "route → high",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port_range",
+                "value": "1024:",
+                "group": "dest_port",
+                "status": "match",
+                "matched": "1024:",
+                "note": "destination port 8080 (from input)"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "high",
+          "detail": "route → high",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "h.com:80",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "port_range=1024:",
+            "actionType": "route",
+            "actionText": "route → high",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port_range",
+                "value": "1024:",
+                "group": "dest_port",
+                "status": "no_match",
+                "note": "destination port 80 (from input)"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "port_range=:1023",
+            "actionType": "route",
+            "actionText": "route → low",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port_range",
+                "value": ":1023",
+                "group": "dest_port",
+                "status": "match",
+                "matched": ":1023",
+                "note": "destination port 80 (from input)"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 1,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "low",
+          "detail": "route → low",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "h.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "unknown",
+            "summary": "port_range=1024:",
+            "actionType": "route",
+            "actionText": "route → high",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port_range",
+                "value": "1024:",
+                "group": "dest_port",
+                "status": "unknown",
+                "note": "destination port is not part of the query (add :port to the input to check)"
+              }
+            ],
+            "effect": "could match here if its undetermined conditions hold"
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "unknown",
+            "summary": "port_range=:1023",
+            "actionType": "route",
+            "actionText": "route → low",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "port_range",
+                "value": ":1023",
+                "group": "dest_port",
+                "status": "unknown",
+                "note": "destination port is not part of the query (add :port to the input to check)"
+              }
+            ],
+            "effect": "could match here if its undetermined conditions hold"
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "final",
+          "detail": "route → final",
+          "fromFinal": true,
+          "assumed": true
+        }
+      }
+    }
+  ]
+}

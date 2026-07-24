@@ -1,0 +1,174 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "cdn.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "rule_set=combo",
+            "actionType": "route",
+            "actionText": "route → hit",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "rule_set",
+                "value": "combo",
+                "group": "rule_set",
+                "status": "match",
+                "ruleSet": {
+                  "tag": "combo",
+                  "type": "inline",
+                  "status": "match",
+                  "matchedIdx": 0,
+                  "rules": [
+                    {
+                      "index": 0,
+                      "type": "logical",
+                      "status": "match",
+                      "summary": "logical and",
+                      "actionType": "",
+                      "actionText": "",
+                      "terminal": false,
+                      "reached": false,
+                      "mode": "and",
+                      "sub": [
+                        {
+                          "index": 0,
+                          "type": "default",
+                          "status": "match",
+                          "summary": "domain_suffix=example.com",
+                          "actionType": "",
+                          "actionText": "",
+                          "terminal": false,
+                          "reached": false,
+                          "conditions": [
+                            {
+                              "field": "domain_suffix",
+                              "value": "example.com",
+                              "group": "dest_addr",
+                              "status": "match",
+                              "matched": "example.com"
+                            }
+                          ]
+                        },
+                        {
+                          "index": 0,
+                          "type": "default",
+                          "status": "match",
+                          "summary": "domain_keyword=cdn",
+                          "actionType": "",
+                          "actionText": "",
+                          "terminal": false,
+                          "reached": false,
+                          "conditions": [
+                            {
+                              "field": "domain_keyword",
+                              "value": "cdn",
+                              "group": "dest_addr",
+                              "status": "match",
+                              "matched": "cdn"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "count": 1
+                }
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "miss",
+        "decision": {
+          "actionType": "route",
+          "outbound": "hit",
+          "detail": "route → hit",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "www.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "rule_set=combo",
+            "actionType": "route",
+            "actionText": "route → hit",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "rule_set",
+                "value": "combo",
+                "group": "rule_set",
+                "status": "no_match",
+                "ruleSet": {
+                  "tag": "combo",
+                  "type": "inline",
+                  "status": "no_match",
+                  "matchedIdx": -1,
+                  "count": 1
+                }
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "miss",
+        "decision": {
+          "actionType": "route",
+          "outbound": "miss",
+          "detail": "route → miss",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

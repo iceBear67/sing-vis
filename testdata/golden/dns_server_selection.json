@@ -1,0 +1,118 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "site.cn.example",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=cn.example",
+            "actionType": "route",
+            "actionText": "route → server local-dns",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "cn.example",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "cn.example"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": 0,
+        "final": "proxy-dns",
+        "decision": {
+          "actionType": "route",
+          "server": "local-dns",
+          "detail": "route → server local-dns",
+          "serverInfo": {
+            "tag": "local-dns",
+            "type": "udp",
+            "address": "223.5.5.5",
+            "detour": "direct"
+          },
+          "fromFinal": false,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "other.example",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=cn.example",
+            "actionType": "route",
+            "actionText": "route → server local-dns",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "cn.example",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": -1,
+        "final": "proxy-dns",
+        "decision": {
+          "actionType": "route",
+          "server": "proxy-dns",
+          "detail": "route → server proxy-dns",
+          "serverInfo": {
+            "tag": "proxy-dns",
+            "type": "https",
+            "address": "1.1.1.1",
+            "detour": "proxy"
+          },
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

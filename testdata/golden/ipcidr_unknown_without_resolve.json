@@ -1,0 +1,61 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "host.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh",
+        "ipv4": [
+          "1.2.3.4"
+        ]
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "unknown",
+            "summary": "ip_cidr=1.2.3.0/24",
+            "actionType": "route",
+            "actionText": "route → matched-ip",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "1.2.3.0/24",
+                "group": "dest_addr",
+                "status": "unknown",
+                "note": "requires the resolved IP (domain not resolved for this evaluation)"
+              }
+            ],
+            "effect": "could match here if its undetermined conditions hold"
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": true
+        }
+      }
+    }
+  ]
+}

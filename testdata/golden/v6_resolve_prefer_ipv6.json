@@ -1,0 +1,83 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "host.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh",
+        "ipv4": [
+          "1.1.1.1"
+        ],
+        "ipv6": [
+          "2001:db8::99"
+        ]
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=example.com",
+            "actionType": "resolve",
+            "actionText": "resolve (prefer_ipv6)",
+            "terminal": false,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "example.com",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "example.com"
+              }
+            ],
+            "effect": "resolved → 2001:db8::99, 1.1.1.1 (IP rules below can now match)"
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_cidr=2001:db8::/32",
+            "actionType": "route",
+            "actionText": "route → v6hit",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "2001:db8::/32",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "2001:db8::/32"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "v6hit",
+          "detail": "route → v6hit",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

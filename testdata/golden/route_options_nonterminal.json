@@ -1,0 +1,77 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "a.me",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain=a.me",
+            "actionType": "route-options",
+            "actionText": "route-options (non-terminal)",
+            "terminal": false,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "a.me",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "a.me"
+              }
+            ],
+            "effect": "matched but non-terminal; continues scanning"
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "domain=a.me",
+            "actionType": "route",
+            "actionText": "route → real",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "a.me",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "a.me"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 1,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "real",
+          "detail": "route → real",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

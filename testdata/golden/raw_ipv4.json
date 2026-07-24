@@ -1,0 +1,76 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "10.1.2.3",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_cidr=10.0.0.0/8",
+            "actionType": "route",
+            "actionText": "route → lan",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "10.0.0.0/8",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "10.0.0.0/8"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "wan",
+        "decision": {
+          "actionType": "route",
+          "outbound": "lan",
+          "detail": "route → lan",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "8.8.8.8",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "ip_cidr=10.0.0.0/8",
+            "actionType": "route",
+            "actionText": "route → lan",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "10.0.0.0/8",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "wan",
+        "decision": {
+          "actionType": "route",
+          "outbound": "wan",
+          "detail": "route → wan",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

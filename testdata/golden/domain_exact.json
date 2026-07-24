@@ -1,0 +1,159 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain=example.com, EXAMPLE.ORG",
+            "actionType": "route",
+            "actionText": "route → hit",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "example.com, EXAMPLE.ORG",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "example.com"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "miss",
+        "decision": {
+          "actionType": "route",
+          "outbound": "hit",
+          "detail": "route → hit",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "www.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=example.com, EXAMPLE.ORG",
+            "actionType": "route",
+            "actionText": "route → hit",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "example.com, EXAMPLE.ORG",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "miss",
+        "decision": {
+          "actionType": "route",
+          "outbound": "miss",
+          "detail": "route → miss",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "example.org",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=example.com, EXAMPLE.ORG",
+            "actionType": "route",
+            "actionText": "route → hit",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "example.com, EXAMPLE.ORG",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "miss",
+        "decision": {
+          "actionType": "route",
+          "outbound": "miss",
+          "detail": "route → miss",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

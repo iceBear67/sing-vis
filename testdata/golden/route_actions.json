@@ -1,0 +1,300 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "reject.me",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain=reject.me",
+            "actionType": "reject",
+            "actionText": "reject (default)",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "reject.me",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "reject.me"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "proxy",
+        "decision": {
+          "actionType": "reject",
+          "detail": "reject (default)",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "hijack.me",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=reject.me",
+            "actionType": "reject",
+            "actionText": "reject (default)",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "reject.me",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "domain=hijack.me",
+            "actionType": "hijack-dns",
+            "actionText": "hijack-dns",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "hijack.me",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "hijack.me"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "hijack-dns",
+          "detail": "hijack-dns",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "direct.me",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=reject.me",
+            "actionType": "reject",
+            "actionText": "reject (default)",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "reject.me",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=hijack.me",
+            "actionType": "hijack-dns",
+            "actionText": "hijack-dns",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "hijack.me",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 2,
+            "type": "default",
+            "status": "match",
+            "summary": "domain=direct.me",
+            "actionType": "direct",
+            "actionText": "direct",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "direct.me",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "direct.me"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 2,
+        "final": "proxy",
+        "decision": {
+          "actionType": "direct",
+          "outbound": "direct",
+          "detail": "direct",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "other.me",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=reject.me",
+            "actionType": "reject",
+            "actionText": "reject (default)",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "reject.me",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=hijack.me",
+            "actionType": "hijack-dns",
+            "actionText": "hijack-dns",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "hijack.me",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 2,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=direct.me",
+            "actionType": "direct",
+            "actionText": "direct",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "direct.me",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

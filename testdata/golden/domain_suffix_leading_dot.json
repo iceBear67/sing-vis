@@ -1,0 +1,266 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "example.com.cn",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=.com.cn",
+            "actionType": "route",
+            "actionText": "route → cn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": ".com.cn",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": ".com.cn"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "cn",
+          "detail": "route → cn",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "com.cn",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=.com.cn",
+            "actionType": "route",
+            "actionText": "route → cn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": ".com.cn",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=sagernet.org",
+            "actionType": "route",
+            "actionText": "route → sn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "sagernet.org",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "direct",
+          "detail": "route → direct",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "sagernet.org",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=.com.cn",
+            "actionType": "route",
+            "actionText": "route → cn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": ".com.cn",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=sagernet.org",
+            "actionType": "route",
+            "actionText": "route → sn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "sagernet.org",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "sagernet.org"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 1,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "sn",
+          "detail": "route → sn",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "sing-box.sagernet.org",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=.com.cn",
+            "actionType": "route",
+            "actionText": "route → cn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": ".com.cn",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          },
+          {
+            "index": 1,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=sagernet.org",
+            "actionType": "route",
+            "actionText": "route → sn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "sagernet.org",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "sagernet.org"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 1,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "sn",
+          "detail": "route → sn",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

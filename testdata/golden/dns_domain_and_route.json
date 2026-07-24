@@ -1,0 +1,165 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "www.cn.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh",
+        "ipv4": [
+          "203.0.113.1"
+        ]
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=cn.com",
+            "actionType": "route",
+            "actionText": "route → server cn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "cn.com",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "cn.com"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": 0,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "server": "cn",
+          "detail": "route → server cn",
+          "serverInfo": {
+            "tag": "cn",
+            "type": "udp",
+            "address": "223.5.5.5",
+            "detour": "direct"
+          },
+          "fromFinal": false,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=cn.com",
+            "actionType": "route",
+            "actionText": "route → direct",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "cn.com",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "cn.com"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "px",
+        "decision": {
+          "actionType": "route",
+          "outbound": "direct",
+          "detail": "route → direct",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "www.us.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh",
+        "ipv4": [
+          "93.184.216.34"
+        ]
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=cn.com",
+            "actionType": "route",
+            "actionText": "route → server cn",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "cn.com",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "server": "proxy",
+          "detail": "route → server proxy",
+          "serverInfo": {
+            "tag": "proxy",
+            "type": "https",
+            "address": "1.1.1.1",
+            "detour": "px"
+          },
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=cn.com",
+            "actionType": "route",
+            "actionText": "route → direct",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "cn.com",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "px",
+        "decision": {
+          "actionType": "route",
+          "outbound": "px",
+          "detail": "route → px",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

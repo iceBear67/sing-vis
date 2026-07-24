@@ -1,0 +1,65 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "unknown",
+            "summary": "rule_set=ghost",
+            "actionType": "route",
+            "actionText": "route → x",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "rule_set",
+                "value": "ghost",
+                "group": "rule_set",
+                "status": "unknown",
+                "ruleSet": {
+                  "tag": "ghost",
+                  "type": "",
+                  "status": "unknown",
+                  "matchedIdx": -1,
+                  "count": 0,
+                  "error": "rule_set not defined in route.rule_set"
+                }
+              }
+            ],
+            "effect": "could match here if its undetermined conditions hold"
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "final",
+          "detail": "route → final",
+          "fromFinal": true,
+          "assumed": true
+        }
+      }
+    }
+  ]
+}

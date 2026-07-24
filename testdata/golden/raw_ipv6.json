@@ -1,0 +1,112 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "2001:db8::1",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_cidr=2001:db8::/32",
+            "actionType": "route",
+            "actionText": "route → v6net",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "2001:db8::/32",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "2001:db8::/32"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "other",
+        "decision": {
+          "actionType": "route",
+          "outbound": "v6net",
+          "detail": "route → v6net",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "2606:4700:4700::1111",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "ip_cidr=2001:db8::/32",
+            "actionType": "route",
+            "actionText": "route → v6net",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "2001:db8::/32",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "other",
+        "decision": {
+          "actionType": "route",
+          "outbound": "other",
+          "detail": "route → other",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "[2001:db8::5]:443",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "ip_cidr=2001:db8::/32",
+            "actionType": "route",
+            "actionText": "route → v6net",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "ip_cidr",
+                "value": "2001:db8::/32",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "2001:db8::/32"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "other",
+        "decision": {
+          "actionType": "route",
+          "outbound": "v6net",
+          "detail": "route → v6net",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

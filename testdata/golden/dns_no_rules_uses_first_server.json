@@ -1,0 +1,43 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "anything.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "first",
+        "decision": {
+          "actionType": "route",
+          "server": "first",
+          "detail": "route → server first",
+          "serverInfo": {
+            "tag": "first",
+            "type": "udp",
+            "address": "1.1.1.1",
+            "detour": "direct"
+          },
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

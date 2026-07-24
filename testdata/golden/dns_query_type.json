@@ -1,0 +1,62 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "host.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "query_type=A",
+            "actionType": "route",
+            "actionText": "route → server b",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "query_type",
+                "value": "A",
+                "group": "other",
+                "status": "match",
+                "matched": "A",
+                "note": "evaluated for the DNS query type shown"
+              }
+            ]
+          }
+        ],
+        "matchedIndex": 0,
+        "final": "a",
+        "decision": {
+          "actionType": "route",
+          "server": "b",
+          "detail": "route → server b",
+          "serverInfo": {
+            "tag": "b",
+            "type": "udp",
+            "address": "8.8.8.8"
+          },
+          "fromFinal": false,
+          "assumed": false
+        }
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

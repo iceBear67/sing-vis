@@ -1,0 +1,108 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "x.e.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "match",
+            "summary": "domain_suffix=a.com, b.com, c.com, d.com, …(+2)",
+            "actionType": "route",
+            "actionText": "route → many",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "a.com, b.com, c.com, d.com, …(+2)",
+                "group": "dest_addr",
+                "status": "match",
+                "matched": "e.com"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": 0,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "many",
+          "detail": "route → many",
+          "fromFinal": false,
+          "assumed": false
+        }
+      }
+    },
+    {
+      "input": "nope.net",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain_suffix=a.com, b.com, c.com, d.com, …(+2)",
+            "actionType": "route",
+            "actionText": "route → many",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain_suffix",
+                "value": "a.com, b.com, c.com, d.com, …(+2)",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "final",
+        "decision": {
+          "actionType": "route",
+          "outbound": "final",
+          "detail": "route → final",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}

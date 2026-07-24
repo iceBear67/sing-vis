@@ -1,0 +1,55 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "other.me",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh"
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "no_match",
+            "summary": "domain=nope.me",
+            "actionType": "route",
+            "actionText": "route → x",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "domain",
+                "value": "nope.me",
+                "group": "dest_addr",
+                "status": "no_match"
+              }
+            ]
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → (first outbound)",
+          "fromFinal": true,
+          "assumed": false
+        }
+      }
+    }
+  ]
+}
