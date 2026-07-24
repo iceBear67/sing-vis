@@ -30,7 +30,7 @@ The one optional piece is **binary (`.srs`) rule-set support**, which needs a sm
    - **Resolved IPs** — the A/AAAA records fetched via DoH (shown when a domain is resolved).
    - **Geolocation** — every IP shown (resolved addresses and raw-IP inputs) is tagged with a country flag and location (归属地); see *IP geolocation* below.
 
-   Click any result card to expand it, and any rule step to see its per-condition breakdown.
+   Click any result card to expand it, and any rule step to see its per-condition breakdown. Each condition also states **what it actually tests** (`domain_suffix` covering subdomains, `ip_cidr` in a DNS rule filtering the *answer* rather than the query, …), the step spells out **how the condition groups combined** into its verdict (groups are AND-ed, values inside one group OR-ed, and an `UNKNOWN?` survives the AND), and the **slice of your config** behind it — `route.rules[3]`, the `rule_set` definition it referenced — is quoted underneath.
 4. **Save the profile** with 💾. Profiles live in your browser (IndexedDB), persist across reloads, and appear in the left sidebar. Settings persist too. Everything stays on your machine.
 
 ### Toolbar options
@@ -104,7 +104,7 @@ DoH resolution, remote rule-set fetches and the geo-database download originate 
 ```
 web/               static single-page frontend (no build step)
   index.html         markup
-  app.js             UI + rendering (consumes the engine's Result JSON)
+  app.js             UI + rendering (consumes the engine's Result JSON; reuses engine/parse.js to quote config excerpts)
   editor.js          JSON / host-list syntax highlighting (transparent-textarea overlay)
   geoip.js           qqwry.ipdb (IPIP.net ipdb format) reader for IP geolocation
   storage.js         profiles, settings & cached geo database in IndexedDB

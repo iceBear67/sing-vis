@@ -338,11 +338,35 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .cond .cnote { color: var(--text-faint); font-size: 11.5px; grid-column: 1 / -1; margin-left: 130px; }
 .cond .group-tag { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .3px; }
 .cond .matched-val { color: var(--match); font-family: var(--mono); font-size: 11.5px; }
+.cond .criterion { color: var(--text-faint); font-size: 11.5px; font-style: italic; grid-column: 1 / -1; margin-left: 130px; }
+
+/* how a rule's condition groups combined into its verdict */
+.rule-logic {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+  font-size: 11.5px; color: var(--text-dim); cursor: help;
+}
+.rule-logic .lg-group { font-family: var(--mono); }
+.rule-logic .op { font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: var(--text-faint); }
+
+/* the slice of config a rule / rule set came from */
+.cfg-excerpt { margin-top: 8px; }
+.cfg-excerpt .cfg-label {
+  font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .3px;
+  color: var(--text-faint); margin-bottom: 4px;
+}
+.cfg-json {
+  margin: 0; max-height: 260px; overflow: auto; padding: 8px 10px;
+  background: var(--bg-sunken); border: 1px solid var(--border); border-radius: 8px;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.55; white-space: pre;
+}
+.cfg-json code { font: inherit; }
 
 .ruleset-box { margin: 6px 0 6px 12px; padding: 8px 10px; background: var(--bg-sunken); border-radius: 8px; border: 1px solid var(--border); }
 .ruleset-box .rs-head { display: flex; gap: 8px; align-items: center; font-size: 12px; }
 .ruleset-box .rs-meta { color: var(--text-faint); font-size: 11px; }
 .ruleset-box .rs-err { color: var(--reject); font-size: 11.5px; margin-top: 4px; }
+.ruleset-box .cfg-json { background: var(--bg); } /* the box is already sunken */
 
 .decision {
   margin-top: 10px; padding: 12px 14px; border-radius: 9px; border: 1px solid var(--border);

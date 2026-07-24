@@ -38,6 +38,9 @@
 
   <script src="storage.js"></script>
   <script src="editor.js"></script>
+  <!-- The engine itself runs in the worker; the main thread loads only the
+       parser, to quote the analyzed config back in the result cards. -->
+  <script src="engine/parse.js"></script>
   <script src="geoip.js"></script>
   <script src="app.js"></script>
 </body>

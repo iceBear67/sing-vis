@@ -413,7 +413,7 @@
   }
 
   root.SingvisParse = {
-    parseConfig, joinVals, joinU16, fieldsFromHeadless, buildHeadlessNode,
+    parseConfig, parseJSONC, joinVals, joinU16, fieldsFromHeadless, buildHeadlessNode,
     QTYPE_TO_NUM, qtypeNum,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

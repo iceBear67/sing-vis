@@ -75,6 +75,7 @@ const state = {
   settings: { dohServer: 'https://1.1.1.1/dns-query' },
   draft: null,          // { id?, name, config, inputs, ruleSetFiles }
   lastResult: null,
+  configIndex: null,    // the analyzed config, indexed for the excerpts in result cards
   analyzing: false,
 };
 
@@ -147,6 +148,7 @@ async function selectProfile(id) {
     state.activeId = id;
     state.draft = { id: p.id, name: p.name || '', config: p.config || '', inputs: p.inputs || '', ruleSetFiles: p.ruleSetFiles || {} };
     state.lastResult = null;
+    state.configIndex = null;
     renderSidebar();
     renderEditor();
   } catch (e) { toast('Failed to load profile: ' + e.message, 'err'); }
@@ -156,6 +158,7 @@ function newDraft() {
   state.activeId = null;
   state.draft = { name: '', config: SAMPLE_CONFIG, inputs: 'www.google.com\nbaidu.com\nopenai.com\n1.1.1.1', ruleSetFiles: {} };
   state.lastResult = null;
+  state.configIndex = null;
   renderSidebar();
   renderEditor();
 }
@@ -326,6 +329,9 @@ async function analyze() {
       assumeResolved: store.get('assumeResolved', true),
     });
     state.lastResult = result;
+    // Snapshot the config that produced this result, so the excerpts shown in
+    // the cards keep matching the results even if the textarea is edited after.
+    state.configIndex = buildConfigIndex(d.config);
     renderResults(result);
   } catch (e) {
     $('#results').innerHTML = `<div class="card"><div class="card-body" style="color:var(--reject)">⚠ ${esc(e.message)}</div></div>`;
@@ -395,6 +401,115 @@ function inputIP(it) {
   if (s[0] === '[') { const e = s.indexOf(']'); return e >= 0 ? s.slice(1, e) : s.slice(1); }
   if ((s.match(/:/g) || []).length === 1) s = s.split(':')[0];
   return s;
+}
+
+/* ---------------- config excerpts ---------------- */
+// The result cards quote the rule they are explaining straight from the analyzed
+// config. The rule lists are indexed by position, which is exactly what a trace
+// step's `index` refers to, so no matching heuristics are needed. Parsed with the
+// engine's own JSONC parser so what is quoted is what the engine read.
+function buildConfigIndex(text) {
+  let cfg;
+  try { cfg = window.SingvisParse ? SingvisParse.parseJSONC(text) : JSON.parse(text); }
+  catch { return null; }
+  if (!cfg || typeof cfg !== 'object') return null;
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const route = cfg.route && typeof cfg.route === 'object' ? cfg.route : {};
+  const dns = cfg.dns && typeof cfg.dns === 'object' ? cfg.dns : {};
+  // Null-prototype: tags come from the config, and a set tagged "constructor"
+  // must not resolve to something off Object.prototype.
+  const idx = { route: arr(route.rules), dns: arr(dns.rules), ruleSets: Object.create(null) };
+  for (const rs of arr(route.rule_set)) {
+    if (!rs || typeof rs !== 'object') continue;
+    for (const tag of (Array.isArray(rs.tag) ? rs.tag : [rs.tag])) {
+      if (typeof tag === 'string' && tag) idx.ruleSets[tag] = rs;
+    }
+  }
+  return idx;
+}
+
+// ruleConfig returns the config object behind a trace step: `dns.rules[i]` for a
+// DNS trace, `route.rules[i]` for a route trace.
+function ruleConfig(kind, index) {
+  const idx = state.configIndex;
+  if (!idx || !(index >= 0)) return undefined;
+  return (kind === 'dns' ? idx.dns : idx.route)[index];
+}
+
+function renderConfigExcerpt(label, obj) {
+  if (obj === undefined || obj === null) return '';
+  let json;
+  try { json = JSON.stringify(obj, null, 2); } catch { return ''; }
+  if (typeof json !== 'string') return '';
+  const body = window.singvisEditor ? singvisEditor.highlightJSON(json) : esc(json);
+  return `<div class="cfg-excerpt">
+      <div class="cfg-label">${esc(label)}</div>
+      <pre class="cfg-json"><code>${body}</code></pre>
+    </div>`;
+}
+
+/* ---------------- condition reference ---------------- */
+// What each condition actually tests, in one line — so an expanded rule explains
+// *why* it landed where it did, not just that it did. The wording tracks the
+// matchers in engine/engine.js, which mirror sing-box's own semantics.
+const FIELD_DOC = {
+  domain: 'the whole domain equals one of these values (case-insensitive; a trailing dot is ignored)',
+  domain_suffix: 'the domain equals a value or ends with "." + value — "example.com" also covers "a.example.com", while a value written with a leading dot matches subdomains only',
+  domain_keyword: 'the value appears anywhere inside the domain, as a plain substring',
+  domain_regex: 'the regular expression matches anywhere in the domain — anchor it with ^ / $ to pin it down',
+  ip_cidr: 'the destination address falls inside one of these prefixes; for a domain that is its resolved address',
+  ip_is_private: 'the destination address is loopback, link-local, or private space (RFC 1918 / unique-local)',
+  source_ip_cidr: 'the client\'s own address — a property of the live connection, so it cannot be known from a domain alone',
+  source_ip_is_private: 'the client\'s own address — a property of the live connection, so it cannot be known from a domain alone',
+  port: 'the destination port equals one of these values',
+  port_range: 'the destination port falls inside an inclusive start:end range; either side may be left open',
+  source_port: 'the client\'s source port — picked per connection, so it cannot be known here',
+  source_port_range: 'the client\'s source port — picked per connection, so it cannot be known here',
+  network: 'the transport the connection uses, tcp or udp',
+  protocol: 'the application protocol sing-box sniffs from the first bytes of the connection (tls, http, quic, …)',
+  query_type: 'the DNS record type being asked for — clients typically ask A and AAAA in parallel',
+  rule_set: 'the set matches when ANY headless rule inside it matches; the rules within a set are OR-ed',
+  inbound: 'which configured inbound accepted the connection',
+  client: 'the client software sing-box identified',
+  auth_user: 'the inbound user that authenticated',
+  user: 'the inbound user that authenticated',
+  process_name: 'the local program that opened the connection — only visible to sing-box at runtime',
+  process_path: 'the local program that opened the connection — only visible to sing-box at runtime',
+  process_path_regex: 'the local program that opened the connection — only visible to sing-box at runtime',
+  package_name: 'the Android app that opened the connection',
+  package_name_regex: 'the Android app that opened the connection',
+  wifi_ssid: 'the Wi-Fi network the device is currently on',
+  wifi_bssid: 'the Wi-Fi access point the device is currently on',
+  source_mac_address: 'the client\'s hardware address, seen only on the live connection',
+  source_hostname: 'the client\'s hostname, seen only on the live connection',
+  preferred_by: 'which client requested this route',
+  clash_mode: 'the Clash mode selected right now (global / rule / direct) — live runtime state',
+  ip_version: 'whether the connection ends up on IPv4 or IPv6, decided when it is actually made',
+  network_type: 'the kind of network interface in use (wifi / cellular / …)',
+  network_is_expensive: 'whether the device is on a metered network',
+  network_is_constrained: 'whether the device is in low-data mode',
+  geosite: 'removed in sing-box 1.8 — migrate it to a rule_set',
+  geoip: 'removed in sing-box 1.8 — migrate it to a rule_set',
+  source_geoip: 'removed in sing-box 1.8 — migrate it to a rule_set',
+};
+
+// In a DNS rule these same field names mean something different: they filter the
+// *answer* after it comes back, so they never influence which server is queried.
+const DNS_RESPONSE_DOC = {
+  ip_cidr: 'inside a DNS rule this filters the addresses in the answer, after resolution — it does not decide which server is asked',
+  ip_is_private: 'inside a DNS rule this filters the addresses in the answer, after resolution — it does not decide which server is asked',
+  ip_accept_any: 'accepts an answer holding any address at all; applies to the response, not to the query',
+  response_rcode: 'matches the response code of the answer, so it applies only once the query has been answered',
+  match_response: 'matches against the answer itself, so it applies only once the query has been answered',
+};
+
+// criterionOf picks the reference line for one condition. Group tells the two
+// meanings of ip_cidr apart: "dest_addr" is the connection's destination, while
+// "other" is where the DNS response filters land.
+function criterionOf(c) {
+  const field = String(c.field || '').replace(/ \(deprecated\/removed\)$/, '');
+  const doc = (c.group === 'other' ? DNS_RESPONSE_DOC[field] : '') || FIELD_DOC[field];
+  return typeof doc === 'string' ? doc : '';
 }
 
 /* ---------------- results rendering ---------------- */
@@ -510,7 +625,9 @@ function renderStep(s, kind, trace) {
   if (s.status === 'no_match') cls.push('dimmed');
   const conds = s.type === 'logical' ? renderLogical(s) : (s.conditions || []).map(renderCond).join('');
   const effect = s.effect ? `<div class="effect">↳ ${esc(s.effect)}</div>` : '';
-  const detailInner = conds || '<span class="muted">no conditions (matches all)</span>';
+  const detailInner = (conds || '<span class="muted">no conditions (matches all)</span>') +
+    renderRuleLogic(s) +
+    renderConfigExcerpt(`${kind === 'dns' ? 'dns' : 'route'}.rules[${s.index}]`, ruleConfig(kind, s.index));
   return `
     <div class="step ${cls.join(' ')}">
       <div class="step-head">
@@ -535,6 +652,8 @@ function renderLogical(s) {
 function renderCond(c) {
   const matched = c.matched ? `<span class="matched-val">✓ ${esc(c.matched)}</span>` : '';
   const note = c.note ? `<div class="cnote">${esc(c.note)}</div>` : '';
+  const crit = criterionOf(c);
+  const criterion = crit ? `<div class="criterion">tests: ${esc(crit)}</div>` : '';
   const rs = c.ruleSet ? renderRuleSet(c.ruleSet) : '';
   return `
     <div class="cond">
@@ -542,7 +661,36 @@ function renderCond(c) {
       <span class="group-tag">${esc(c.group)}</span>
       <span class="cv">${esc(c.value)} ${matched}</span>
       ${note}
+      ${criterion}
     </div>${rs}`;
+}
+
+// Spell out how the individual condition results became the rule's verdict:
+// sing-box ORs the conditions inside one group (any destination address, any
+// port…) and ANDs the groups together. UNKNOWN survives an AND, so a condition
+// that can't be determined offline never silently turns into a "no match".
+function orOf(statuses) {
+  if (statuses.includes('match')) return 'match';
+  return statuses.includes('unknown') ? 'unknown' : 'no_match';
+}
+function renderRuleLogic(s) {
+  const conds = s.conditions || [];
+  if (conds.length < 2 && !s.invert) return ''; // a single condition IS the verdict
+  const order = [], byGroup = new Map();
+  for (const c of conds) {
+    if (!byGroup.has(c.group)) { byGroup.set(c.group, []); order.push(c.group); }
+    byGroup.get(c.group).push(c.status);
+  }
+  const parts = order.map((g) => {
+    const sts = byGroup.get(g);
+    const any = sts.length > 1 ? ' <span class="op">any of</span>' : '';
+    return `<span class="lg-group">${esc(g)}</span>${any} ${statusBadge(orOf(sts))}`;
+  });
+  const invert = s.invert ? ' <span class="op">then inverted</span>' : '';
+  return `<div class="rule-logic" title="Conditions in the same group are OR-ed, the groups are AND-ed; an UNKNOWN survives the AND so it can never pass silently as a no-match.">
+      ${parts.join('<span class="op">and</span>')}${invert}
+      <span class="arrow">→</span> <span class="op">rule</span> ${statusBadge(s.status)}
+    </div>`;
 }
 
 function renderRuleSet(rs) {
@@ -552,12 +700,16 @@ function renderRuleSet(rs) {
   }).join('');
   const err = rs.error ? `<div class="rs-err">⚠ ${esc(rs.error)}</div>` : '';
   const matched = rs.matchedIdx >= 0 ? ` · matched rule #${rs.matchedIdx}` : '';
+  // Where the set came from (url / path / inline) is the piece of context the
+  // decoded rules alone don't give you.
+  const def = state.configIndex ? state.configIndex.ruleSets[rs.tag] : undefined;
   return `
     <div class="ruleset-box">
       <div class="rs-head">${statusBadge(rs.status)} <b>rule_set</b> <span class="mono">${esc(rs.tag)}</span>
         <span class="rs-meta">(${esc(rs.type || '?')} · ${rs.count || 0} rules${matched})</span>
       </div>
       ${err}${inner}
+      ${renderConfigExcerpt(`route.rule_set · ${rs.tag}`, def)}
     </div>`;
 }
 
