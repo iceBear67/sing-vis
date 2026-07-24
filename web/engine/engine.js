@@ -1,6 +1,7 @@
 'use strict';
 
-// The sing-vis matching engine, ported from internal/engine (Go) to pure JS.
+// The sing-vis matching engine: a pure-JS model of sing-box's route/DNS rule
+// matching. Behaviour is pinned by testdata/fixtures.json (see test/run.mjs).
 // Produces byte-for-byte the same engine.Result JSON the wasm build did, so the
 // frontend is unchanged. Self-contained apart from SingvisIP (ip.js) and
 // SingvisParse (parse.js); no browser APIs — the resolver and rule-set fetching

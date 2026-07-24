@@ -5,11 +5,11 @@ go 1.24.7
 require (
 	github.com/sagernet/sing v0.8.12-0.20260721063414-596db5dd6ef4
 	github.com/sagernet/sing-box v0.0.0-00010101000000-000000000000
-	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 )
 
 require (
 	github.com/miekg/dns v1.1.72 // indirect
+	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect

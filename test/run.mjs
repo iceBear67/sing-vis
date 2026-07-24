@@ -1,90 +1,34 @@
-// Cross-language parity test: runs the pure-JS engine over testdata/fixtures.json
-// with the same canned DoH answers the Go goldgen used, and deep-compares each
-// Result against testdata/golden/<name>.json.
+// Regression test: runs the pure-JS engine over testdata/fixtures.json with the
+// same canned DoH answers, and deep-compares each Result against
+// testdata/golden/<name>.json (written by test/gen.mjs from this same engine).
+//
+// A golden diff means behaviour CHANGED, not necessarily that it broke — read
+// the diff, and if the change is intended, re-run `node test/gen.mjs`. The
+// hand-written assertions at the bottom are the part that pins behaviour we
+// believe is *correct*, so they survive a careless regeneration.
 //
 //   node test/run.mjs            # run all fixtures
 //   node test/run.mjs domain     # run fixtures whose name includes "domain"
-//
-// The engine files are plain classic scripts that attach to globalThis; we load
-// them into this realm with node:vm so the exact same code runs here and in the
-// browser worker.
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import vm from 'node:vm';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { diff, goldenDir, loadFixtures, runCase } from './harness.mjs';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const root = dirname(here);
-
-function loadEngine() {
-  for (const f of ['ip.js', 'parse.js', 'engine.js']) {
-    const code = readFileSync(join(root, 'web', 'engine', f), 'utf8');
-    vm.runInThisContext(code, { filename: f });
-  }
-  if (!globalThis.SingvisEngine) throw new Error('engine failed to load');
-  return globalThis.SingvisEngine;
-}
-
-// A resolver seeded from a fixture's canned DNS answers.
-function cannedResolver(dns) {
-  return {
-    server: () => 'fake-doh',
-    async resolve(name) {
-      const a = (dns && dns[name]) || {};
-      return { name, ipv4: a.ipv4 || [], ipv6: a.ipv6 || [], error: a.error || '' };
-    },
-  };
-}
-
-// Deep-equal with a JSON path to the first difference.
-function diff(a, b, path = '') {
-  if (a === b) return null;
-  if (typeof a !== typeof b) return `${path}: type ${typeof a} != ${typeof b}`;
-  if (a === null || b === null) return `${path}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b)) return `${path}: array vs non-array`;
-    if (a.length !== b.length) return `${path}: length ${a.length} != ${b.length}`;
-    for (let i = 0; i < a.length; i++) { const d = diff(a[i], b[i], `${path}[${i}]`); if (d) return d; }
-    return null;
-  }
-  if (typeof a === 'object') {
-    const ka = Object.keys(a).sort(), kb = Object.keys(b).sort();
-    if (ka.join(',') !== kb.join(',')) return `${path}: keys {${ka}} != {${kb}}`;
-    for (const k of ka) { const d = diff(a[k], b[k], `${path}.${k}`); if (d) return d; }
-    return null;
-  }
-  return `${path}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`;
-}
-
-const engine = loadEngine();
-const filter = process.argv[2] || '';
-const fixtures = JSON.parse(readFileSync(join(root, 'testdata', 'fixtures.json'), 'utf8')).cases;
-const goldenDir = join(root, 'testdata', 'golden');
+const filter = process.argv[2] && !process.argv[2].startsWith('-') ? process.argv[2] : '';
+const fixtures = loadFixtures();
 
 let pass = 0, fail = 0;
 for (const c of fixtures) {
   if (filter && !c.name.includes(filter)) continue;
-  const ruleSetFiles = {};
-  for (const [k, v] of Object.entries(c.ruleSetFiles || {})) {
-    ruleSetFiles[k] = { format: v.format, data: typeof v.data === 'string' ? v.data : JSON.stringify(v.data) };
-  }
-  let got;
+  const got = await runCase(c);
+  let want;
   try {
-    got = await engine.analyze(
-      {
-        config: JSON.stringify(c.config),
-        inputs: c.inputs,
-        network: c.network || '',
-        protocol: c.protocol || '',
-        assumeResolved: c.assumeResolved !== false,
-      },
-      { resolver: cannedResolver(c.dns), ruleSetFiles },
-    );
-  } catch (e) {
-    got = { error: e.message };
+    want = JSON.parse(readFileSync(join(goldenDir, c.name + '.json'), 'utf8'));
+  } catch {
+    fail++;
+    console.log(`FAIL ${c.name}\n     no golden file — run: node test/gen.mjs`);
+    continue;
   }
-  const want = JSON.parse(readFileSync(join(goldenDir, c.name + '.json'), 'utf8'));
   const d = diff(got, want);
   if (d) {
     fail++;
@@ -93,6 +37,54 @@ for (const c of fixtures) {
     pass++;
   }
 }
+
+// ---- explicit assertions ----
+//
+// Goldens only pin behaviour against itself. These spell out the expected value
+// by hand, so a wrong-but-stable result still fails.
+
+const outboundOf = (r, i) => r.inputs[i].route.decision.outbound || r.inputs[i].route.decision.detail;
+
+async function assertCase(name, c, want) {
+  const r = await runCase(c);
+  const got = {};
+  for (const k of Object.keys(want)) got[k] = want[k] === undefined ? undefined : outboundOf(r, Number(k));
+  const d = diff(got, want);
+  if (d) { fail++; console.log(`FAIL assert:${name}\n     ${d}`); } else { pass++; }
+}
+
+// assumeHttps injects https/443 for bare domains, leaves an explicit scheme or
+// :port alone, and never touches raw IPs.
+const httpsCfg = {
+  route: {
+    rules: [
+      { protocol: ['rdp'], outbound: 'p-rdp' },
+      { port: [3389], outbound: 'p-3389' },
+      { protocol: ['tls'], outbound: 'p-tls' },
+      { protocol: ['https'], outbound: 'p-https' },
+      { port: [443], outbound: 'p-443' },
+    ],
+    final: 'direct',
+  },
+  outbounds: ['direct', 'p-rdp', 'p-3389', 'p-tls', 'p-https', 'p-443'].map((tag) => ({ tag, type: 'direct' })),
+};
+const httpsInputs = ['example.com', 'example.com:8080', 'tls://example.com', 'rdp://host.local:3389', '1.1.1.1'];
+
+await assertCase('assumeHttps on', { config: httpsCfg, inputs: httpsInputs, assumeHttps: true, assumeResolved: false }, {
+  0: 'p-https', // bare domain -> assumed https:443
+  1: 'p-https', // explicit :8080 wins over the default port, protocol still https
+  2: 'p-tls',   // explicit scheme wins over the default protocol
+  3: 'p-rdp',
+  4: 'direct',  // raw IP: no assumption, every protocol/port rule stays UNKNOWN
+});
+
+await assertCase('assumeHttps off', { config: httpsCfg, inputs: httpsInputs, assumeHttps: false, assumeResolved: false }, {
+  0: 'direct',
+  1: 'direct',  // :8080 is known, but no protocol rule can match
+  2: 'p-tls',
+  3: 'p-rdp',
+  4: 'direct',
+});
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

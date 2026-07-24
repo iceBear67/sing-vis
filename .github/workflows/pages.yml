@@ -4,7 +4,7 @@
 # the .srs decoder (web/srs.wasm + web/wasm_exec.js), which .gitignore keeps out
 # of the repo; CI runs ./build.sh to regenerate it, so the published site gets
 # binary rule-set support without those artifacts ever being committed. The
-# engine's parity suite runs before the upload, so a broken matcher can't reach
+# engine's test suite runs before the upload, so a broken matcher can't reach
 # the site.
 #
 # One-time repository setup: Settings → Pages → Source: "GitHub Actions".
@@ -48,12 +48,11 @@ jobs:
       - name: Build the .srs decoder (web/srs.wasm + web/wasm_exec.js)
         run: ./build.sh
 
-      - name: Check the golden files still match the Go oracle
-        run: go run ./cmd/goldgen -check
+      - name: Check the golden files are not stale
+        run: node test/gen.mjs -check
 
       - name: Test the engine
         run: |
-          go test ./internal/engine
           node test/run.mjs
           node test/srs.mjs
           node test/browser.mjs

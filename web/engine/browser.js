@@ -9,7 +9,7 @@
   const DEFAULT_DOH = 'https://1.1.1.1/dns-query';
   const TYPE_A = 1, TYPE_AAAA = 28;
 
-  // ---- DoH JSON resolver (mirrors internal/dnsx) ----
+  // ---- DoH JSON resolver ----
   function makeResolver(server) {
     server = server || DEFAULT_DOH;
     const cache = new Map();
