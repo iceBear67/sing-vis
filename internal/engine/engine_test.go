@@ -199,6 +199,72 @@ func TestRawIPInput(t *testing.T) {
 	}
 }
 
+func TestPortHint(t *testing.T) {
+	cfg := `{"route":{"rules":[{"port":[443],"outbound":"proxy"}],"final":"direct"}}`
+
+	// An explicit host:port that matches selects the port rule's outbound.
+	it := analyzeOne(t, cfg, "example.com:443", true, &fakeResolver{})
+	if d := routeOutbound(t, it); d.Outbound != "proxy" || d.FromFinal {
+		t.Errorf("example.com:443: outbound=%q fromFinal=%v, want proxy/false", d.Outbound, d.FromFinal)
+	}
+	if st := condStatus(t, it, "port"); st != StatusMatch {
+		t.Errorf("example.com:443: port cond status=%q, want match", st)
+	}
+
+	// A non-matching port falls through to final.
+	it = analyzeOne(t, cfg, "example.com:80", true, &fakeResolver{})
+	if d := routeOutbound(t, it); d.Outbound != "direct" || !d.FromFinal {
+		t.Errorf("example.com:80: outbound=%q fromFinal=%v, want direct/true", d.Outbound, d.FromFinal)
+	}
+	if st := condStatus(t, it, "port"); st != StatusNoMatch {
+		t.Errorf("example.com:80: port cond status=%q, want no_match", st)
+	}
+
+	// Without a port the rule stays undeterminable (unknown), as before.
+	it = analyzeOne(t, cfg, "example.com", true, &fakeResolver{})
+	if st := condStatus(t, it, "port"); st != StatusUnknown {
+		t.Errorf("example.com: port cond status=%q, want unknown", st)
+	}
+
+	// port_range honours the supplied port too (inclusive range).
+	cfgRange := `{"route":{"rules":[{"port_range":["8000:9000"],"outbound":"proxy"}],"final":"direct"}}`
+	it = analyzeOne(t, cfgRange, "example.com:8080", true, &fakeResolver{})
+	if d := routeOutbound(t, it); d.Outbound != "proxy" {
+		t.Errorf("example.com:8080: outbound=%q, want proxy", d.Outbound)
+	}
+	if st := condStatus(t, it, "port_range"); st != StatusMatch {
+		t.Errorf("example.com:8080: port_range cond status=%q, want match", st)
+	}
+
+	// A raw IP with a port is still parsed as an IP (port stripped from the host).
+	cfgIP := `{"route":{"rules":[{"port":[53],"outbound":"dns"}],"final":"direct"}}`
+	it = analyzeOne(t, cfgIP, "1.1.1.1:53", true, &fakeResolver{})
+	if it.Kind != "ip" {
+		t.Errorf("1.1.1.1:53: kind=%q, want ip", it.Kind)
+	}
+	if d := routeOutbound(t, it); d.Outbound != "dns" {
+		t.Errorf("1.1.1.1:53: outbound=%q, want dns", d.Outbound)
+	}
+}
+
+// condStatus returns the status of the first condition with the given field
+// across all route steps.
+func condStatus(t *testing.T, it InputTrace, field string) string {
+	t.Helper()
+	if it.Route == nil {
+		t.Fatalf("input %q: no route trace", it.Input)
+	}
+	for _, s := range it.Route.Steps {
+		for _, c := range s.Conditions {
+			if c.Field == field {
+				return c.Status
+			}
+		}
+	}
+	t.Fatalf("input %q: no %q condition found", it.Input, field)
+	return ""
+}
+
 func TestInvalidInput(t *testing.T) {
 	cfg := `{"route":{"rules":[],"final":"proxy"}}`
 	it := analyzeOne(t, cfg, "not a valid host!!", true, &fakeResolver{})

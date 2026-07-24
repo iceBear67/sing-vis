@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/sagernet/sing-box/option"
@@ -39,6 +40,8 @@ type evalCtx struct {
 	host         string // lowercased domain (empty for IP input)
 	destIsIP     bool
 	destAddr     netip.Addr
+	destPort     uint16 // destination port supplied on the input line (host:port)
+	havePort     bool   // a destination port was supplied, so port rules are determinable
 	destResolved bool         // addresses populated (via resolve/assume)
 	addresses    []netip.Addr // resolved/assumed destination addresses
 	rs           *ruleSetResolver
@@ -199,15 +202,30 @@ func (ec *evalCtx) evalFields(mf matchFields) (string, []CondEval) {
 		groupStatuses = append(groupStatuses, orStatus(sa))
 	}
 
-	// --- destination port group (OR) — port is unknown for a bare domain/IP ---
+	// --- destination port group (OR) ---
+	// A bare domain/IP has no port, so port rules are UNKNOWN. When the input line
+	// carries an explicit host:port, the given port is used and rules become
+	// determinable (match / no_match).
 	var dp []string
 	if len(mf.port) > 0 {
-		conds = append(conds, CondEval{Field: "port", Value: joinU16(mf.port), Group: groupDestPort, Status: StatusUnknown, Note: "destination port is not part of the query"})
-		dp = append(dp, StatusUnknown)
+		if ec.havePort {
+			st, matched := ec.matchPort(mf.port)
+			conds = append(conds, CondEval{Field: "port", Value: joinU16(mf.port), Group: groupDestPort, Status: st, Matched: matched, Note: fmt.Sprintf("destination port %d (from input)", ec.destPort)})
+			dp = append(dp, st)
+		} else {
+			conds = append(conds, CondEval{Field: "port", Value: joinU16(mf.port), Group: groupDestPort, Status: StatusUnknown, Note: "destination port is not part of the query (add :port to the input to check)"})
+			dp = append(dp, StatusUnknown)
+		}
 	}
 	if len(mf.portRange) > 0 {
-		conds = append(conds, CondEval{Field: "port_range", Value: joinVals(mf.portRange), Group: groupDestPort, Status: StatusUnknown, Note: "destination port is not part of the query"})
-		dp = append(dp, StatusUnknown)
+		if ec.havePort {
+			st, matched := ec.matchPortRange(mf.portRange)
+			conds = append(conds, CondEval{Field: "port_range", Value: joinVals(mf.portRange), Group: groupDestPort, Status: st, Matched: matched, Note: fmt.Sprintf("destination port %d (from input)", ec.destPort)})
+			dp = append(dp, st)
+		} else {
+			conds = append(conds, CondEval{Field: "port_range", Value: joinVals(mf.portRange), Group: groupDestPort, Status: StatusUnknown, Note: "destination port is not part of the query (add :port to the input to check)"})
+			dp = append(dp, StatusUnknown)
+		}
 	}
 	if len(dp) > 0 {
 		groupStatuses = append(groupStatuses, orStatus(dp))
@@ -423,6 +441,49 @@ func (ec *evalCtx) matchNetwork(networks []string) string {
 		}
 	}
 	return StatusNoMatch
+}
+
+// matchPort evaluates a `port` condition against the destination port supplied
+// on the input line. Callers guarantee ec.havePort is true.
+func (ec *evalCtx) matchPort(ports []uint16) (string, string) {
+	for _, p := range ports {
+		if p == ec.destPort {
+			return StatusMatch, fmt.Sprint(p)
+		}
+	}
+	return StatusNoMatch, ""
+}
+
+// matchPortRange evaluates a `port_range` condition, mirroring sing-box's
+// route/rule.PortRangeItem: each entry splits on the first ':', an empty low
+// bound means 0 and a trailing ':' means 65535; a port matches when it falls in
+// any [start, end] inclusive range. Callers guarantee ec.havePort is true.
+func (ec *evalCtx) matchPortRange(ranges []string) (string, string) {
+	for _, r := range ranges {
+		i := strings.IndexByte(r, ':')
+		if i < 0 {
+			continue // malformed (sing-box rejects at parse time)
+		}
+		var start, end uint64 = 0, 0xFFFF
+		if i > 0 {
+			v, err := strconv.ParseUint(r[:i], 10, 16)
+			if err != nil {
+				continue
+			}
+			start = v
+		}
+		if i != len(r)-1 {
+			v, err := strconv.ParseUint(r[i+1:], 10, 16)
+			if err != nil {
+				continue
+			}
+			end = v
+		}
+		if uint64(ec.destPort) >= start && uint64(ec.destPort) <= end {
+			return StatusMatch, r
+		}
+	}
+	return StatusNoMatch, ""
 }
 
 func (ec *evalCtx) matchQueryType(types []option.DNSQueryType) (string, string) {

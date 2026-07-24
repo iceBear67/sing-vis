@@ -20,6 +20,13 @@
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --radius: 10px;
   --shadow: 0 1px 3px rgba(20,25,35,.06), 0 4px 16px rgba(20,25,35,.05);
+  --tok-key: #8250df;
+  --tok-str: #0a7d33;
+  --tok-num: #b3510a;
+  --tok-lit: #0b60d6;
+  --tok-punc: #656d78;
+  --tok-com: #8a919b;
+  --tok-port: #3b6cff;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -42,6 +49,13 @@
     --reject: #f0715c;
     --reject-bg: #2c1512;
     --shadow: 0 1px 3px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+    --tok-key: #d2a8ff;
+    --tok-str: #7ee787;
+    --tok-num: #ffa657;
+    --tok-lit: #79c0ff;
+    --tok-punc: #9aa4b2;
+    --tok-com: #8b949e;
+    --tok-port: #5b86ff;
   }
 }
 
@@ -96,7 +110,27 @@ body {
 .profile-item .meta { font-size: 11px; color: var(--text-faint); }
 .empty-hint { color: var(--text-faint); font-size: 12px; padding: 8px 4px; }
 
-.content { padding: 22px 26px; overflow-y: auto; max-width: 1100px; width: 100%; }
+/* Two panes: editor (profile info + IPs to check) on the left, results on the
+   right. Each pane scrolls independently inside the viewport. */
+.content {
+  padding: 22px 24px;
+  display: grid;
+  grid-template-columns: minmax(430px, 44%) 1fr;
+  gap: 22px;
+  align-items: start;
+  height: calc(100vh - 65px);
+  overflow: hidden;
+}
+.editor-pane, .results-pane { min-width: 0; overflow-y: auto; max-height: 100%; padding-bottom: 24px; }
+.results-pane:empty::before,
+.results-pane #results:empty::before {
+  content: "Results appear here after you click ▶ Analyze.";
+  display: block; color: var(--text-faint); padding: 40px 8px; text-align: center; font-size: 13px;
+}
+@media (max-width: 1024px) {
+  .content { grid-template-columns: 1fr; height: auto; overflow: visible; }
+  .editor-pane, .results-pane { overflow: visible; max-height: none; padding-bottom: 0; }
+}
 
 /* ---------- forms ---------- */
 .card {
@@ -126,6 +160,68 @@ textarea.inputs { min-height: 90px; }
 .row > .field { flex: 1; margin-bottom: 0; min-width: 160px; }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
 .check input { width: auto; }
+hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ---------- code editor (highlighted textarea overlay) ---------- */
+/* A transparent textarea sits on top of a highlighted <pre> backdrop; the two
+   share identical box metrics so the caret lines up exactly. */
+.code-editor {
+  position: relative;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.code-editor:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.code-editor .ce-input,
+.code-editor .ce-backdrop {
+  margin: 0;
+  padding: 11px 12px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  letter-spacing: 0;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.code-editor .ce-input {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  resize: vertical;
+  outline: none;
+  overflow: auto;
+}
+.code-editor .ce-input:focus { box-shadow: none; border: 0; }
+.code-editor .ce-input::selection { background: rgba(59,108,255,.25); color: transparent; }
+.code-editor .ce-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text);
+}
+.code-editor .ce-backdrop code { font: inherit; white-space: inherit; display: block; }
+.code-editor.ce-json .ce-input { min-height: 340px; }
+.code-editor.ce-hosts .ce-input { min-height: 150px; }
+
+.tok-key { color: var(--tok-key); }
+.tok-str { color: var(--tok-str); }
+.tok-num { color: var(--tok-num); }
+.tok-lit { color: var(--tok-lit); }
+.tok-punc { color: var(--tok-punc); }
+.tok-comment { color: var(--tok-com); font-style: italic; }
+.tok-port { color: var(--tok-port); font-weight: 700; }
 
 /* ---------- buttons ---------- */
 .btn {
@@ -195,7 +291,17 @@ textarea.inputs { min-height: 90px; }
   display: flex; gap: 8px; align-items: flex-start;
 }
 .ip-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.ip-chip { font-family: var(--mono); font-size: 12px; background: var(--bg-sunken); border: 1px solid var(--border); padding: 3px 8px; border-radius: 6px; }
+.ip-chip { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 12px; background: var(--bg-sunken); border: 1px solid var(--border); padding: 3px 8px; border-radius: 6px; }
+
+/* ---------- IP geolocation (qqwry.ipdb) ---------- */
+.flag { font-size: 13px; line-height: 1; }
+.geo-slot { display: inline-flex; align-items: center; gap: 3px; }
+.geo-slot:not(:empty) { margin-left: 7px; padding-left: 7px; border-left: 1px solid var(--border-strong); }
+.geo-slot .geo-loc { font-family: system-ui, sans-serif; color: var(--text-dim); font-size: 11.5px; }
+.chip.geo-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-sunken); }
+.chip.geo-chip:empty { display: none; }
+.chip.geo-chip .geo-loc { font-family: system-ui, sans-serif; color: var(--text-dim); font-weight: 600; }
+.geo-status { color: var(--text-faint); }
 
 /* trace steps */
 .steps { display: flex; flex-direction: column; gap: 6px; }

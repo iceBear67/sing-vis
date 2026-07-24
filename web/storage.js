@@ -12,12 +12,17 @@
 
 (function () {
   const DB_NAME = 'singvis';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE_PROFILES = 'profiles';
   const STORE_META = 'meta';
+  const STORE_BLOBS = 'blobs'; // large binary payloads (e.g. the qqwry.ipdb geo database)
   const SETTINGS_KEY = 'settings';
 
-  const DEFAULT_SETTINGS = { dohServer: 'https://1.1.1.1/dns-query' };
+  const DEFAULT_SETTINGS = {
+    dohServer: 'https://1.1.1.1/dns-query',
+    geoEnabled: true,
+    geoUrl: 'https://cdn.jsdelivr.net/npm/qqwry.ipdb/qqwry.ipdb',
+  };
 
   let dbPromise = null;
 
@@ -32,6 +37,9 @@
         }
         if (!db.objectStoreNames.contains(STORE_META)) {
           db.createObjectStore(STORE_META);
+        }
+        if (!db.objectStoreNames.contains(STORE_BLOBS)) {
+          db.createObjectStore(STORE_BLOBS);
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -131,6 +139,20 @@
 
     defaultSettings() {
       return Object.assign({}, DEFAULT_SETTINGS);
+    },
+
+    // Large binary payloads (ArrayBuffer), keyed by an arbitrary string. Used to
+    // cache the ~37 MB geo database so it is downloaded only once.
+    async getBlob(key) {
+      return tx(STORE_BLOBS, 'readonly', async (store, ret) => {
+        ret(await reqPromise(store.get(key)));
+      });
+    },
+
+    async putBlob(key, value) {
+      await tx(STORE_BLOBS, 'readwrite', (store) => {
+        store.put(value, key);
+      });
     },
   };
 

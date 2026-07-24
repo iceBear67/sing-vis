@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"net/netip"
+	"strconv"
 	"strings"
 )
 
@@ -29,8 +30,8 @@ func analyze(ctx context.Context, req Request) (*Result, error) {
 
 func analyzeInput(ctx context.Context, cfg *Config, rs *ruleSetResolver, req Request, line string) InputTrace {
 	it := InputTrace{Input: line}
-	host := normalizeInput(line)
-	ec := &evalCtx{ctx: ctx, network: req.Network, rs: rs, resolver: req.Resolver}
+	host, port, hasPort := normalizeInput(line)
+	ec := &evalCtx{ctx: ctx, network: req.Network, rs: rs, resolver: req.Resolver, destPort: port, havePort: hasPort}
 
 	if addr, ok := parseIPInput(host); ok {
 		it.Kind = "ip"
@@ -71,12 +72,15 @@ func analyzeInput(ctx context.Context, cfg *Config, rs *ruleSetResolver, req Req
 	return it
 }
 
-// normalizeInput strips scheme, path, userinfo and a trailing :port so pasted
-// URLs or host:port strings still analyze correctly.
-func normalizeInput(s string) string {
+// normalizeInput strips scheme, path and userinfo, then separates a trailing
+// :port so pasted URLs or host:port strings still analyze correctly. The port is
+// returned (rather than discarded) so port / port_range rules can be evaluated
+// against it. Raw IPv6 literals (many colons) are left intact; bracketed IPv6
+// (`[v6]` / `[v6]:port`) is unwrapped.
+func normalizeInput(s string) (host string, port uint16, hasPort bool) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return s
+		return s, 0, false
 	}
 	if i := strings.Index(s, "://"); i >= 0 {
 		s = s[i+3:]
@@ -88,17 +92,46 @@ func normalizeInput(s string) string {
 		s = s[i+1:]
 	}
 	s = strings.TrimSpace(s)
-	// Strip a trailing :port for domains / IPv4 (but not raw IPv6 which has many colons).
-	if strings.Count(s, ":") == 1 {
-		host, port, ok := strings.Cut(s, ":")
-		if ok && isAllDigits(port) && host != "" {
-			s = host
+
+	// Bracketed IPv6, optionally with a port: [2001:db8::1] or [2001:db8::1]:443.
+	if strings.HasPrefix(s, "[") {
+		if end := strings.IndexByte(s, ']'); end >= 0 {
+			hostPart := s[1:end]
+			if rest := s[end+1:]; strings.HasPrefix(rest, ":") {
+				if p, ok := parsePort(rest[1:]); ok {
+					return hostPart, p, true
+				}
+			}
+			return hostPart, 0, false
 		}
 	}
-	// Strip [ ] around bracketed IPv6.
+
+	// Unbracketed host:port — a single colon distinguishes it from raw IPv6.
+	if strings.Count(s, ":") == 1 {
+		if h, ps, ok := strings.Cut(s, ":"); ok && h != "" {
+			if p, pok := parsePort(ps); pok {
+				return h, p, true
+			}
+		}
+	}
+
+	// Strip stray brackets around a bare IPv6 (no port).
 	s = strings.TrimPrefix(s, "[")
 	s = strings.TrimSuffix(s, "]")
-	return s
+	return s, 0, false
+}
+
+// parsePort parses a decimal port in the valid 1–65535 range. Port 0 is treated
+// as "no port".
+func parsePort(s string) (uint16, bool) {
+	if !isAllDigits(s) {
+		return 0, false
+	}
+	v, err := strconv.ParseUint(s, 10, 16)
+	if err != nil || v == 0 {
+		return 0, false
+	}
+	return uint16(v), true
 }
 
 func parseIPInput(s string) (netip.Addr, bool) {

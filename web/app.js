@@ -111,6 +111,7 @@ async function init() {
   try {
     state.settings = await storage.getSettings();
   } catch (e) { /* keep defaults */ }
+  initGeo();
   await loadProfiles();
   if (state.profiles.length) selectProfile(state.profiles[0].id);
   else newDraft();
@@ -164,6 +165,7 @@ function renderEditor() {
   const assume = store.get('assumeResolved', true);
   const files = Object.entries(d.ruleSetFiles || {});
   $('#content').innerHTML = `
+    <div class="editor-pane">
     <div class="card">
       <div class="card-head">
         <h2>${state.activeId ? 'Edit profile' : 'New profile'}</h2>
@@ -214,9 +216,13 @@ function renderEditor() {
       </div>
       <span class="spacer"></span>
       <span class="muted mono" id="doh-indicator">DoH: ${esc(state.settings.dohServer || '—')}</span>
+      <span class="muted mono geo-status" id="geo-indicator"></span>
+    </div>
     </div>
 
-    <div id="results"></div>
+    <div class="results-pane">
+      <div id="results"></div>
+    </div>
   `;
 
   $('#btn-save').onclick = saveProfile;
@@ -228,6 +234,11 @@ function renderEditor() {
   $('#file-list').querySelectorAll('.rm-file').forEach((b) => {
     b.onclick = () => { delete state.draft.ruleSetFiles[b.dataset.key]; syncDraftFromForm(); renderEditor(); };
   });
+  if (window.singvisEditor) {
+    singvisEditor.attach($('#f-config'), 'json');
+    singvisEditor.attach($('#f-inputs'), 'hosts');
+  }
+  updateGeoIndicator();
   if (state.lastResult) renderResults(state.lastResult);
 }
 
@@ -292,6 +303,9 @@ async function analyze() {
   const d = state.draft;
   const inputs = d.inputs.split('\n').map((s) => s.trim()).filter(Boolean);
   if (!inputs.length) { toast('Add at least one domain or IP', 'err'); return; }
+  // Start (or reuse) the geo database load so results can be annotated; the
+  // ~37 MB download happens at most once and is cached afterward.
+  if (state.settings.geoEnabled && window.singvisGeo) { singvisGeo.ensureLoaded(); updateGeoIndicator(); }
   const btn = $('#btn-analyze');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Analyzing…';
   const loadingEngine = !engineWorker.ready;
@@ -314,6 +328,67 @@ async function analyze() {
   }
 }
 
+/* ---------------- IP geolocation (qqwry.ipdb) ---------------- */
+function initGeo() {
+  if (!window.singvisGeo) return;
+  singvisGeo.configure({ enabled: !!state.settings.geoEnabled, url: state.settings.geoUrl || undefined });
+  singvisGeo.onChange(() => {
+    updateGeoIndicator();
+    const r = document.getElementById('results');
+    if (r) annotateGeo(r);
+  });
+}
+
+// updateGeoIndicator reflects the geo database status in the toolbar.
+function updateGeoIndicator() {
+  const el = document.getElementById('geo-indicator');
+  if (!el || !window.singvisGeo) return;
+  const s = singvisGeo.getStatus();
+  let txt = '', title = '';
+  if (state.settings.geoEnabled) {
+    if (s.status === 'loading') {
+      const pct = (typeof s.progress === 'number' && !isNaN(s.progress)) ? ' ' + Math.round(s.progress * 100) + '%' : '';
+      txt = '· Geo: downloading' + pct + '…';
+    } else if (s.status === 'ready') {
+      txt = '· Geo: qqwry ✓';
+      title = 'IP geolocation via qqwry.ipdb';
+    } else if (s.status === 'error') {
+      txt = '· Geo: unavailable';
+      title = s.error ? ('geo database error: ' + s.error) : '';
+    }
+  }
+  el.textContent = txt;
+  el.title = title;
+}
+
+// annotateGeo fills every empty [data-geo-ip] slot under root with a flag +
+// location, once the database is ready. Safe to call repeatedly.
+function annotateGeo(root) {
+  if (!root || !window.singvisGeo || singvisGeo.getStatus().status !== 'ready') return;
+  root.querySelectorAll('[data-geo-ip]').forEach((el) => {
+    if (el.dataset.geoDone) return;
+    el.dataset.geoDone = '1';
+    const g = singvisGeo.lookup(el.dataset.geoIp);
+    if (!g) return;
+    const text = g.location || g.countryCode;
+    if (!g.flag && !text) return;
+    el.title = [g.location, g.isp].filter(Boolean).join(' · ');
+    el.innerHTML = `${g.flag ? `<span class="flag">${g.flag}</span>` : ''}${text ? `<span class="geo-loc">${esc(text)}</span>` : ''}`;
+  });
+}
+
+// inputIP extracts the bare IP from an IP input line (stripping scheme, path,
+// brackets and a trailing :port) so it can be geolocated.
+function inputIP(it) {
+  if (!it || it.kind !== 'ip') return '';
+  let s = String(it.input || '').trim();
+  const sc = s.indexOf('://'); if (sc >= 0) s = s.slice(sc + 3);
+  const sl = s.indexOf('/'); if (sl >= 0) s = s.slice(0, sl);
+  if (s[0] === '[') { const e = s.indexOf(']'); return e >= 0 ? s.slice(1, e) : s.slice(1); }
+  if ((s.match(/:/g) || []).length === 1) s = s.split(':')[0];
+  return s;
+}
+
 /* ---------------- results rendering ---------------- */
 function statusBadge(status) {
   const label = { match: 'MATCH', no_match: 'no match', unknown: 'UNKNOWN?' }[status] || status;
@@ -332,6 +407,7 @@ function renderResults(result) {
   root.querySelectorAll('.step-head').forEach((h) => {
     h.onclick = (e) => { e.stopPropagation(); h.closest('.step').classList.toggle('expanded'); };
   });
+  annotateGeo(root);
 }
 
 function renderInputCard(it, idx) {
@@ -341,6 +417,8 @@ function renderInputCard(it, idx) {
   } else {
     if (it.dns && it.dns.decision) chips.push(dnsChip(it.dns.decision));
     if (it.route && it.route.decision) chips.push(routeChip(it.route.decision));
+    const ip = inputIP(it);
+    if (ip) chips.push(`<span class="chip geo-chip" data-geo-ip="${esc(ip)}"></span>`);
   }
   const open = idx === 0 ? 'open' : '';
   return `
@@ -378,8 +456,9 @@ function renderResolved(r) {
   if (r.error && !(r.ipv4 && r.ipv4.length) && !(r.ipv6 && r.ipv6.length)) {
     return `<div class="section-title">Resolved (DoH)</div><p class="muted">resolution failed: ${esc(r.error)}</p>`;
   }
-  const v4 = (r.ipv4 || []).map((ip) => `<span class="ip-chip">${esc(ip)}</span>`).join('');
-  const v6 = (r.ipv6 || []).map((ip) => `<span class="ip-chip">${esc(ip)}</span>`).join('');
+  const ipChip = (ip) => `<span class="ip-chip">${esc(ip)}<span class="geo-slot" data-geo-ip="${esc(ip)}"></span></span>`;
+  const v4 = (r.ipv4 || []).map(ipChip).join('');
+  const v6 = (r.ipv6 || []).map(ipChip).join('');
   if (!v4 && !v6) return `<div class="section-title">Resolved (DoH)</div><p class="muted">no A/AAAA records</p>`;
   return `<div class="section-title">Resolved via ${esc(r.server)}</div><div class="ip-chips">${v4}${v6}</div>`;
 }
@@ -503,6 +582,18 @@ function openSettings() {
                 .map((u) => `<button class="btn small preset" data-url="${esc(u)}">${esc(u.replace('https://', '').replace('/dns-query', ''))}</button>`).join('')}
             </div>
           </div>
+          <hr class="sep" />
+          <div class="field">
+            <label class="check">
+              <input type="checkbox" id="s-geo" ${state.settings.geoEnabled ? 'checked' : ''}/>
+              Annotate IP geolocation (归属地 + flag)
+            </label>
+            <div class="hint" style="margin-top:4px">Downloads the qqwry.ipdb database (~37 MB) once from the URL below, then caches it in your browser. Lookups stay local — nothing is uploaded.</div>
+          </div>
+          <div class="field">
+            <label class="lbl">Geo database URL <span class="hint">ipdb format · must allow CORS</span></label>
+            <input type="url" id="s-geourl" value="${esc(state.settings.geoUrl || (window.singvisGeo && singvisGeo.DEFAULT_URL) || '')}" placeholder="https://cdn.jsdelivr.net/npm/qqwry.ipdb/qqwry.ipdb" />
+          </div>
           <div class="row" style="justify-content:flex-end;margin-top:6px">
             <button class="btn primary" id="s-save">Save</button>
           </div>
@@ -515,9 +606,17 @@ function openSettings() {
   root.querySelectorAll('.preset').forEach((b) => b.onclick = () => { $('#s-doh').value = b.dataset.url; });
   $('#s-save').onclick = async () => {
     const dohServer = $('#s-doh').value.trim() || 'https://1.1.1.1/dns-query';
+    const geoEnabled = $('#s-geo').checked;
+    const geoUrl = $('#s-geourl').value.trim() || (window.singvisGeo && singvisGeo.DEFAULT_URL) || '';
     try {
-      state.settings = await storage.saveSettings({ dohServer });
+      state.settings = await storage.saveSettings({ dohServer, geoEnabled, geoUrl });
       const ind = $('#doh-indicator'); if (ind) ind.textContent = 'DoH: ' + state.settings.dohServer;
+      if (window.singvisGeo) {
+        singvisGeo.configure({ enabled: geoEnabled, url: geoUrl });
+        if (geoEnabled) singvisGeo.ensureLoaded();
+      }
+      updateGeoIndicator();
+      if (state.lastResult && document.getElementById('results')) renderResults(state.lastResult);
       close(); toast('Settings saved', 'ok');
     } catch (e) { toast('Save failed: ' + e.message, 'err'); }
   };
