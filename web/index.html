@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>sing-vis · sing-box route explainer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%97%87%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◇</span>
+      <div>
+        <div class="title">sing-vis</div>
+        <div class="subtitle">sing-box DNS &amp; route rule explainer</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="btn-settings" class="btn ghost" title="Settings">⚙ Settings</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <span>Profiles</span>
+        <button id="btn-new" class="btn small">+ New</button>
+      </div>
+      <ul id="profile-list" class="profile-list"></ul>
+    </aside>
+
+    <section class="content" id="content"></section>
+  </main>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root"></div>
+
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

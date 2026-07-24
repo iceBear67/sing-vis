@@ -1,0 +1,5 @@
+# Build artifacts produced by build.sh (reproducible; regenerate with ./build.sh).
+# Remove these lines if you want to commit the built site (e.g. for GitHub Pages).
+web/singvis.wasm
+web/singvis.wasm.gz
+web/wasm_exec.js
