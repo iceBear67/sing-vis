@@ -1,4 +1,5 @@
-// This file is substituted in via `go build -overlay` for the js/wasm build ONLY.
+// This file is copied over the upstream sing source (in a build-local copy of the
+// module) for the js/wasm build ONLY; see build.sh.
 //
 // Upstream common/buf/buffer_unix.go (build tag `!windows`) defines
 // Buffer.Iovec returning golang.org/x/sys/unix.Iovec, which does not exist for

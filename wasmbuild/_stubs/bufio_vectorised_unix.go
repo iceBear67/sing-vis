@@ -1,4 +1,5 @@
-// Substituted in via `go build -overlay` for the js/wasm build ONLY.
+// Copied over the upstream sing source (in a build-local copy of the module) for
+// the js/wasm build ONLY; see build.sh.
 //
 // Upstream common/bufio/vectorised_unix.go (build tag `!windows`) implements the
 // syscall-based vectorised writers using golang.org/x/sys/unix (Iovec, writev,

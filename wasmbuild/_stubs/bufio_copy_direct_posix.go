@@ -1,4 +1,5 @@
-// Substituted in via `go build -overlay` for the js/wasm build ONLY.
+// Copied over the upstream sing source (in a build-local copy of the module) for
+// the js/wasm build ONLY; see build.sh.
 //
 // Upstream common/bufio/copy_direct_posix.go (build tag `!windows`) implements
 // the syscall read-waiters using golang.org/x/sys/unix (readv/recvmsg). wait.go
