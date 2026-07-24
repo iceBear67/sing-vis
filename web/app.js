@@ -436,10 +436,30 @@ function ruleConfig(kind, index) {
   return (kind === 'dns' ? idx.dns : idx.route)[index];
 }
 
+// Like JSON.stringify(v, null, 2), except a short array of primitives stays on
+// one line — `"domain_suffix": ["google.com"]` rather than three lines. The
+// excerpt is reference material, so it should stay compact enough not to outweigh
+// the analysis above it.
+function formatConfigJSON(v, depth = 0) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  const pad = '  '.repeat(depth), inner = '  '.repeat(depth + 1);
+  if (Array.isArray(v)) {
+    if (!v.length) return '[]';
+    if (v.every((x) => x === null || typeof x !== 'object')) {
+      const oneLine = '[' + v.map((x) => JSON.stringify(x)).join(', ') + ']';
+      if (oneLine.length + pad.length <= 72) return oneLine;
+    }
+    return '[\n' + v.map((x) => inner + formatConfigJSON(x, depth + 1)).join(',\n') + '\n' + pad + ']';
+  }
+  const keys = Object.keys(v);
+  if (!keys.length) return '{}';
+  return '{\n' + keys.map((k) => inner + JSON.stringify(k) + ': ' + formatConfigJSON(v[k], depth + 1)).join(',\n') + '\n' + pad + '}';
+}
+
 function renderConfigExcerpt(label, obj) {
   if (obj === undefined || obj === null) return '';
   let json;
-  try { json = JSON.stringify(obj, null, 2); } catch { return ''; }
+  try { json = formatConfigJSON(obj); } catch { return ''; }
   if (typeof json !== 'string') return '';
   const body = window.singvisEditor ? singvisEditor.highlightJSON(json) : esc(json);
   return `<div class="cfg-excerpt">
@@ -548,7 +568,7 @@ function renderInputCard(it, idx) {
   return `
     <div class="card result-card ${open}">
       <div class="result-head">
-        <span class="input-name">${esc(it.input)}</span>
+        <span class="input-name" title="${esc(it.input)}">${esc(it.input)}</span>
         <span class="badge kind-${esc(it.kind)}">${esc(it.kind)}</span>
         <div class="outcome-chips">${chips.join('')}</div>
         <span class="caret">▶</span>
@@ -556,9 +576,9 @@ function renderInputCard(it, idx) {
       <div class="result-body">
         ${it.kind === 'invalid' ? `<p class="muted">${esc(it.error || 'Could not parse this input.')}</p>` : ''}
         ${renderResolved(it.resolved)}
-        ${it.dns ? `<div class="section-title">DNS routing (which server / dns action)</div>${renderTrace(it.dns, 'dns')}` : ''}
+        ${it.dns ? `<div class="section-title">DNS routing <span class="st-hint">which server / DNS action</span></div>${renderTrace(it.dns, 'dns')}` : ''}
         ${renderDNSAAAA(it)}
-        ${it.route ? `<div class="section-title">Route matching (which rule / outbound)</div>${renderTrace(it.route, 'route')}` : ''}
+        ${it.route ? `<div class="section-title">Route matching <span class="st-hint">which rule / outbound</span></div>${renderTrace(it.route, 'route')}` : ''}
       </div>
     </div>`;
 }
@@ -590,7 +610,7 @@ function renderDNSAAAA(it) {
   if (sameDNSOutcome(it.dns, it.dnsAAAA)) {
     return `<p class="muted" style="margin-top:6px">The AAAA query (happy eyeballs) takes the same DNS path.</p>`;
   }
-  return `<div class="section-title">DNS routing · AAAA query (happy eyeballs)</div>${renderTrace(it.dnsAAAA, 'dns')}`;
+  return `<div class="section-title">DNS routing · AAAA <span class="st-hint">the query happy eyeballs sends alongside</span></div>${renderTrace(it.dnsAAAA, 'dns')}`;
 }
 
 function routeChip(dec) {
@@ -602,13 +622,13 @@ function routeChip(dec) {
 function renderResolved(r) {
   if (!r) return '';
   if (r.error && !(r.ipv4 && r.ipv4.length) && !(r.ipv6 && r.ipv6.length)) {
-    return `<div class="section-title">Resolved (DoH)</div><p class="muted">resolution failed: ${esc(r.error)}</p>`;
+    return `<div class="section-title">Resolved <span class="st-hint">via DoH</span></div><p class="muted">resolution failed: ${esc(r.error)}</p>`;
   }
   const ipChip = (ip) => `<span class="ip-chip">${esc(ip)}<span class="geo-slot" data-geo-ip="${esc(ip)}"></span></span>`;
   const v4 = (r.ipv4 || []).map(ipChip).join('');
   const v6 = (r.ipv6 || []).map(ipChip).join('');
-  if (!v4 && !v6) return `<div class="section-title">Resolved (DoH)</div><p class="muted">no A/AAAA records</p>`;
-  return `<div class="section-title">Resolved via ${esc(r.server)}</div><div class="ip-chips">${v4}${v6}</div>`;
+  if (!v4 && !v6) return `<div class="section-title">Resolved <span class="st-hint">via DoH</span></div><p class="muted">no A/AAAA records</p>`;
+  return `<div class="section-title">Resolved <span class="st-hint">via ${esc(r.server)}</span></div><div class="ip-chips">${v4}${v6}</div>`;
 }
 
 function renderTrace(trace, kind) {
@@ -655,13 +675,20 @@ function renderCond(c) {
   const crit = criterionOf(c);
   const criterion = crit ? `<div class="criterion">tests: ${esc(crit)}</div>` : '';
   const rs = c.ruleSet ? renderRuleSet(c.ruleSet) : '';
+  // Key column (what was tested + verdict) beside a value column that reads top
+  // down in decreasing importance: the values, then the engine's note, then the
+  // reference line.
   return `
     <div class="cond">
-      <span class="cf">${esc(c.field)} ${statusBadge(c.status)}</span>
-      <span class="group-tag">${esc(c.group)}</span>
-      <span class="cv">${esc(c.value)} ${matched}</span>
-      ${note}
-      ${criterion}
+      <div class="ck">
+        <span class="cf">${esc(c.field)}</span>
+        ${statusBadge(c.status)}
+      </div>
+      <div class="cvals">
+        <div class="cv-line"><span class="group-tag">${esc(c.group)}</span> <span class="cv">${esc(c.value)}</span> ${matched}</div>
+        ${note}
+        ${criterion}
+      </div>
     </div>${rs}`;
 }
 
@@ -706,7 +733,7 @@ function renderRuleSet(rs) {
   return `
     <div class="ruleset-box">
       <div class="rs-head">${statusBadge(rs.status)} <b>rule_set</b> <span class="mono">${esc(rs.tag)}</span>
-        <span class="rs-meta">(${esc(rs.type || '?')} · ${rs.count || 0} rules${matched})</span>
+        <span class="rs-meta">(${esc(rs.type || '?')} · ${rs.count || 0} rule${rs.count === 1 ? '' : 's'}${matched})</span>
       </div>
       ${err}${inner}
       ${renderConfigExcerpt(`route.rule_set · ${rs.tag}`, def)}
@@ -731,7 +758,7 @@ function renderDecision(dec, kind) {
     }
     return `<div class="decision ${cls}">
       <span class="d-label">DNS action</span>
-      <span class="d-value">${esc(dec.actionType)}</span><span class="arrow">→</span>
+      <span class="d-kind">${esc(dec.actionType)}</span><span class="arrow">→</span>
       <span class="d-value">${esc(value)}</span>${sub} ${fromFinal} ${assumed}
     </div>`;
   }

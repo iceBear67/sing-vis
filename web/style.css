@@ -249,8 +249,11 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .2px;
   white-space: nowrap;
 }
-.badge.kind-domain { background: var(--accent-weak); color: var(--accent); }
-.badge.kind-ip { background: var(--bg-sunken); color: var(--text-dim); }
+/* The kind is metadata — outlined and faint, so it never competes with the host
+   name it sits next to, and accent colour stays reserved for routing outcomes. */
+.badge.kind-domain, .badge.kind-ip {
+  background: transparent; border: 1px solid var(--border); color: var(--text-faint); font-weight: 600;
+}
 .badge.kind-invalid { background: var(--reject-bg); color: var(--reject); }
 .badge.match { background: var(--match-bg); color: var(--match); }
 .badge.no_match { background: var(--nomatch-bg); color: var(--nomatch); }
@@ -259,16 +262,27 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .badge.final { background: var(--bg-sunken); color: var(--text-dim); }
 
 /* ---------- results ---------- */
+/* Text hierarchy inside a result card, loudest first:
+   1. the host under test (.input-name)   — what this card is about
+   2. the outcome (.chip, .decision)      — the answer
+   3. section labels (.section-title)     — structure, deliberately quiet
+   4. rule rows (.step .summary)          — the trail
+   5. conditions, notes, criteria         — the fine print
+   Everything below level 2 stays at or under 12.5px so the title always wins. */
 .result-card { margin-bottom: 16px; }
 .result-head {
-  display: flex; align-items: center; gap: 12px; padding: 13px 16px; cursor: pointer;
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer;
   border-bottom: 1px solid transparent;
 }
 .result-card.open .result-head { border-bottom-color: var(--border); }
-.result-head .input-name { font-family: var(--mono); font-weight: 700; font-size: 14px; }
+.result-head .input-name {
+  font-family: var(--mono); font-weight: 700; font-size: 16.5px; letter-spacing: -.2px;
+  /* A pasted URL must not squeeze the outcome chips out of the row. */
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .result-head .caret { color: var(--text-faint); transition: transform .15s; margin-left: auto; }
 .result-card.open .result-head .caret { transform: rotate(90deg); }
-.outcome-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.outcome-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px;
   font-size: 12px; background: var(--bg-sunken); border: 1px solid var(--border);
@@ -283,9 +297,17 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .result-body { padding: 4px 16px 16px; display: none; }
 .result-card.open .result-body { display: block; }
 
+/* A structural label, not a heading: small faint caps trailed by a hairline that
+   carries the eye across, so sections separate without shouting over the title. */
 .section-title {
-  font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-dim);
-  font-weight: 700; margin: 18px 0 8px;
+  display: flex; align-items: center; gap: 9px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--text-faint);
+  font-weight: 700; margin: 20px 0 8px;
+}
+.section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.section-title .st-hint {
+  text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 11.5px;
+  color: var(--text-faint); font-family: var(--mono);
 }
 .assume-warn {
   background: var(--unknown-bg); color: var(--unknown); border: 1px solid transparent;
@@ -329,16 +351,19 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .step.dimmed { opacity: .62; }
 
 .cond {
-  display: grid; grid-template-columns: 130px auto 1fr; gap: 8px; align-items: baseline;
-  padding: 4px 0; font-size: 12.5px; border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: minmax(0, 148px) 1fr; gap: 4px 12px;
+  padding: 6px 0; font-size: 12.5px; border-bottom: 1px solid var(--border);
 }
 .cond:last-child { border-bottom: none; }
-.cond .cf { font-weight: 600; font-family: var(--mono); font-size: 12px; }
+.cond .ck { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.cond .cf { font-weight: 600; font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.cond .cvals { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cond .cv-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; }
 .cond .cv { font-family: var(--mono); color: var(--text-dim); word-break: break-word; }
-.cond .cnote { color: var(--text-faint); font-size: 11.5px; grid-column: 1 / -1; margin-left: 130px; }
+.cond .cnote { color: var(--text-faint); font-size: 11.5px; }
 .cond .group-tag { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .3px; }
 .cond .matched-val { color: var(--match); font-family: var(--mono); font-size: 11.5px; }
-.cond .criterion { color: var(--text-faint); font-size: 11.5px; font-style: italic; grid-column: 1 / -1; margin-left: 130px; }
+.cond .criterion { color: var(--text-faint); font-size: 11.5px; font-style: italic; }
 
 /* how a rule's condition groups combined into its verdict */
 .rule-logic {
@@ -351,14 +376,12 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
 /* the slice of config a rule / rule set came from */
 .cfg-excerpt { margin-top: 8px; }
-.cfg-excerpt .cfg-label {
-  font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .3px;
-  color: var(--text-faint); margin-bottom: 4px;
-}
+/* A JSON path, so it stays verbatim — no upper-casing. */
+.cfg-excerpt .cfg-label { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-bottom: 4px; }
 .cfg-json {
   margin: 0; max-height: 260px; overflow: auto; padding: 8px 10px;
   background: var(--bg-sunken); border: 1px solid var(--border); border-radius: 8px;
-  font-family: var(--mono); font-size: 11.5px; line-height: 1.55; white-space: pre;
+  font-family: var(--mono); font-size: 11px; line-height: 1.5; white-space: pre;
 }
 .cfg-json code { font: inherit; }
 
@@ -374,8 +397,10 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 }
 .decision.route { border-color: var(--accent); background: var(--accent-weak); }
 .decision.reject { border-color: var(--reject); background: var(--reject-bg); }
-.decision .d-label { font-size: 12px; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-.decision .d-value { font-family: var(--mono); font-weight: 700; font-size: 15px; }
+.decision .d-label { font-size: 10.5px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.decision .d-value { font-family: var(--mono); font-weight: 700; font-size: 14px; }
+/* the action kind is context for the value it points at, not the answer itself */
+.decision .d-kind { font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); }
 .decision.route .d-value { color: var(--accent); }
 .decision.reject .d-value { color: var(--reject); }
 .decision .d-sub { font-size: 12px; color: var(--text-dim); }
