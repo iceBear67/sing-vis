@@ -631,7 +631,7 @@ function renderRouteSection(it) {
   const tabs = inbounds.map((ib, i) => `
     <button class="inb-tab ${i === 0 ? 'active' : ''}" data-inb="${i}" title="${esc(inboundTitle(ib))}">
       <span class="ib-name">${esc(inboundName(ib))}</span>
-      <span class="ib-type">${esc(ib.type || 'inbound')}</span>
+      ${ib.tag ? `<span class="ib-type">${esc(ib.type || 'inbound')}</span>` : ''}
       ${captureMark(ib)}
     </button>`).join('');
   const panels = inbounds.map((ib, i) => `
@@ -645,17 +645,22 @@ function renderRouteSection(it) {
     </div>`;
 }
 
-function inboundName(ib) { return ib.tag || (ib.assumed ? 'assumed' : 'untagged'); }
+// A tagless inbound is named by its type — "mixed" reads better than "untagged",
+// and the type badge beside the name would just repeat it.
+function inboundName(ib) { return ib.tag || ib.type || 'inbound'; }
 function inboundTitle(ib) {
-  if (ib.assumed) return 'No inbounds in the config — assuming one mixed inbound';
+  if (ib.assumed) return 'The config declares no inbounds — assuming one mixed inbound. Its tag is unknown, so `inbound` rules stay undetermined.';
   const where = ib.listen ? ` on ${ib.listen}${ib.listenPort ? ':' + ib.listenPort : ''}` : '';
   return `${ib.type || 'inbound'} inbound${ib.tag ? ` "${ib.tag}"` : ' (no tag)'}${where}`;
 }
 
-// The tab only carries a marker when the inbound would NOT simply see the
-// traffic — a green tick on every captured tab would be noise.
+// The tab is marked only when something is off — an inbound that simply receives
+// the traffic is the expected case and says nothing worth a badge. The assumed
+// inbound is marked permanently here rather than in a panel, so the caveat rides
+// along with the tab instead of repeating itself on every card.
 const CAPTURE_MARK = { bypassed: 'bypassed', partial: 'partial', unknown: '?' };
 function captureMark(ib) {
+  if (ib.assumed) return '<span class="ib-mark assumed">assumed</span>';
   const m = ib.capture && CAPTURE_MARK[ib.capture.status];
   return m ? `<span class="ib-mark ${esc(ib.capture.status)}">${esc(m)}</span>` : '';
 }
@@ -696,28 +701,18 @@ function inboundExcerpt(index) {
   return renderConfigExcerpt(`inbounds[${index}]${dropped ? ' · routing options' : ''}`, pruned);
 }
 
-// renderInbound explains the inbound itself: for a TUN, the capture verdict that
-// runs before any rule does; for a listen inbound, the fact that reaching it is
-// the client's choice rather than something the config decides.
+// renderInbound reports a TUN's capture verdict — the decision the kernel makes
+// before any rule runs. It renders ONLY when that verdict is something other than
+// "the traffic arrives normally": a listen inbound filters nothing by address,
+// and a TUN that receives the traffic is the expected case. Announcing either on
+// every card would bury the trace under boilerplate, so silence here means
+// nothing stood in the way, and a panel always means something did.
 function renderInbound(ib) {
-  // The excerpt is quoted only where it is the evidence for a verdict — a TUN's
-  // route options. For a listen inbound the sentence below already says
-  // everything its config would, and the trace should start close to the top.
-  const excerpt = ib.capture ? inboundExcerpt(ib.index) : '';
-  if (!ib.capture) {
-    const where = ib.listen ? `<code>${esc(ib.listen)}${ib.listenPort ? ':' + ib.listenPort : ''}</code>` : 'its listen address';
-    const body = ib.assumed
-      ? 'The config declares no inbounds, so one <b>mixed</b> inbound is assumed. Its tag is unknown, which is why <code>inbound</code> rules stay undetermined below.'
-      : `A listen inbound receives only what a client sends to ${where}, so every connection it accepts reaches the rules below.`;
-    return `<div class="capture ${ib.assumed ? 'warn' : 'ok'}">
-        <div class="cap-head">
-          <span class="cap-badge">${ib.assumed ? 'assumed inbound' : 'no address filtering'}</span>
-          <span class="cap-summary">${body}</span>
-        </div>
-      </div>${excerpt}`;
-  }
   const c = ib.capture;
-  const cls = { captured: 'ok', bypassed: 'bad', partial: 'warn', unknown: 'warn' }[c.status] || 'warn';
+  if (!c || c.status === 'captured') return '';
+  const cls = { bypassed: 'bad', partial: 'warn', unknown: 'warn' }[c.status] || 'warn';
+  // The route options are the evidence for the verdict, so they're quoted with it.
+  const excerpt = inboundExcerpt(ib.index);
   const addrs = (c.addresses || []).map((a) => `
     <div class="cap-addr">
       <span class="badge ${a.captured ? 'match' : 'no_match'}">${a.captured ? 'routed in' : 'bypasses'}</span>
@@ -879,8 +874,12 @@ function renderRuleSet(rs) {
   const err = rs.error ? `<div class="rs-err">⚠ ${esc(rs.error)}</div>` : '';
   const matched = rs.matchedIdx >= 0 ? ` · matched rule #${rs.matchedIdx}` : '';
   // Where the set came from (url / path / inline) is the piece of context the
-  // decoded rules alone don't give you.
-  const def = state.configIndex ? state.configIndex.ruleSets[rs.tag] : undefined;
+  // decoded rules alone don't give you — but only once the set is part of the
+  // answer. A set that simply didn't match needs no evidence beyond saying so,
+  // and a rule listing several sets would otherwise bury its one hit under the
+  // definitions of the others.
+  const def = rs.status === 'no_match' ? undefined
+    : (state.configIndex ? state.configIndex.ruleSets[rs.tag] : undefined);
   return `
     <div class="ruleset-box">
       <div class="rs-head">${statusBadge(rs.status)} <b>rule_set</b> <span class="mono">${esc(rs.tag)}</span>

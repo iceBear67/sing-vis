@@ -440,6 +440,8 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   background: var(--unknown-bg); color: var(--unknown);
 }
 .inb-tab .ib-mark.bypassed { background: var(--reject-bg); color: var(--reject); }
+/* Not a problem, just not something the config said — kept quiet. */
+.inb-tab .ib-mark.assumed { background: var(--bg-sunken); color: var(--text-faint); }
 .inb-panel { display: none; }
 .inb-panel.active { display: block; }
 /* Traffic that never enters the tunnel never reaches these rules; they are kept
@@ -453,7 +455,8 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   border: 1px solid var(--border); background: var(--bg-sunken);
   display: flex; flex-direction: column; gap: 8px;
 }
-.capture.ok { border-color: var(--match); background: var(--match-bg); }
+/* Only ever shown for a verdict worth interrupting for, so there is no "all
+   good" variant — the panel's presence is itself the signal. */
 .capture.bad { border-color: var(--reject); background: var(--reject-bg); }
 .capture.warn { border-color: var(--unknown); background: var(--unknown-bg); }
 .cap-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -461,7 +464,6 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
   white-space: nowrap;
 }
-.capture.ok .cap-badge { color: var(--match); }
 .capture.bad .cap-badge { color: var(--reject); }
 .capture.warn .cap-badge { color: var(--unknown); }
 .cap-summary { font-size: 12.5px; line-height: 1.55; flex: 1; min-width: 0; }
