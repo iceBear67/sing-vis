@@ -56,7 +56,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "other.example",
@@ -112,7 +121,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     }
   ]
 }

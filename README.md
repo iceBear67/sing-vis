@@ -30,7 +30,7 @@ The one optional piece is **binary (`.srs`) rule-set support**, which needs a sm
 2. **List what to check.** In *Domains / IPs to check*, put one host per line — domains (`www.google.com`) or raw IPs (`1.1.1.1`). Lines starting with `#` are ignored. Pasted URLs and `host:port` strings are accepted; a trailing `:port` (e.g. `example.com:443`, `[2606:4700:4700::1111]:853`) is **used** to evaluate `port` / `port_range` rules that would otherwise be undeterminable — omit it to leave those rules `UNKNOWN?`. A leading scheme (e.g. `rdp://10.0.0.5:3389`, `tls://example.com`) sets that line's assumed **protocol**, so `protocol` rules can be evaluated instead of shown as `UNKNOWN?`. Both the config box and this list are syntax-highlighted as you type.
 3. **Click ▶ Analyze.** For every input you get:
    - **DNS routing** — which `dns.rules` rule matches, the resulting DNS **server** (or `reject`/other action), and the outbound **detour** that server is reached through. Traced for the `A` query, and — because applications resolve with happy eyeballs — again for the `AAAA` query the client sends alongside it, which `query_type` rules can route (or `reject`) differently. The AAAA trace is skipped for names with no AAAA records, and is shown in full only when its path actually differs from the A query's.
-   - **Route matching** — every `route.rules` rule in order, each condition's result (**match** / no match / **`UNKNOWN?`**), which `rule_set` matched and on which headless rule, down to the **final outbound**.
+   - **Route matching** — every `route.rules` rule in order, each condition's result (**match** / no match / **`UNKNOWN?`**), which `rule_set` matched and on which headless rule, down to the **final outbound**. Shown **once per inbound**, behind a row of tabs — see *Inbounds & TUN capture* below.
    - **Resolved IPs** — the A/AAAA records fetched via DoH (shown when a domain is resolved).
    - **Geolocation** — every IP shown (resolved addresses and raw-IP inputs) is tagged with a country flag and location (归属地); see *IP geolocation* below.
 
@@ -45,7 +45,20 @@ The one optional piece is **binary (`.srs`) rule-set support**, which needs a sm
 
 ### Conditions that can't be known offline
 
-Some rule conditions depend on live connection attributes that don't exist for a "what would this domain do?" query — `process_name`, `inbound`, `clash_mode`, source address/port, etc. These show as **`UNKNOWN?`** (amber). Two are recoverable: append `:port` to an input to resolve `port` / `port_range` rules, and prefix a line with a scheme (e.g. `rdp://`) to resolve `protocol` rules. If an undeterminable **terminal** rule sits *before* the definite match, the outcome is flagged **"depends on assumptions"**, because at runtime that rule could preempt the result.
+Some rule conditions depend on live connection attributes that don't exist for a "what would this domain do?" query — `process_name`, `clash_mode`, source address/port, etc. These show as **`UNKNOWN?`** (amber). Three are recoverable: append `:port` to an input to resolve `port` / `port_range` rules, prefix a line with a scheme (e.g. `rdp://`) to resolve `protocol` rules, and switch inbound tabs to resolve `inbound` rules. If an undeterminable **terminal** rule sits *before* the definite match, the outcome is flagged **"depends on assumptions"**, because at runtime that rule could preempt the result.
+
+### Inbounds & TUN capture
+
+The inbound a connection arrives on changes the answer twice over, so **Route matching** is traced once per inbound in `inbounds`, switchable with the tab row above the trace:
+
+- **`inbound` rules become decidable.** Instead of an amber `UNKNOWN?`, an `inbound` condition is evaluated against the tab you're on — so you can see the same destination land on different outbounds depending on where it entered.
+- **A TUN says whether sing-box sees the traffic at all.** With `auto_route`, the tunnel takes over the system default route, `route_exclude_address` punches holes back out of it, and `route_address` replaces it with an explicit allow-list (`route_address_set` / `route_exclude_address_set` contribute the destination `ip_cidr` rules of a rule-set, exactly as sing-box extracts them). A destination that falls outside leaves through the physical interface, so **no route rule ever runs on it** — a verdict no rule trace can express, and one the rules below would otherwise contradict. Each tab states it up front, per resolved address, with the prefix that decided it.
+
+  Prefix lists are matched **per address family**, as sing-box splits them before handing them to sing-tun: a `route_address` holding only IPv4 prefixes leaves IPv6 on the default route rather than excluding it, and a TUN with no IPv6 address gets no IPv6 route at all. The deprecated `inet4_*` / `inet6_*` spellings feed the same lists as the 1.10 fields that replaced them. Filters that gate capture per *process* rather than per address (`include_package`, `exclude_uid`, `include_interface`, …) can't be decided offline, so they're listed as caveats on the verdict.
+
+If the config declares **no inbounds**, one `mixed` inbound is assumed and labelled as such. It has no tag, so `inbound` rules stay `UNKNOWN?` rather than reading as a no-match against an empty tag.
+
+The chips on a collapsed card stay **inbound-agnostic** — they answer "what happens regardless of where this entered" — with a separate amber chip when some TUN would not receive the traffic at all.
 
 ### Rule sets
 
@@ -64,7 +77,7 @@ Every IP in the results — resolved addresses and raw-IP inputs alike — is an
 sing-vis aims to reproduce sing-box's matching **semantics**, not a paraphrase of them:
 
 - **The version-sensitive binary format reuses sing-box's own code.** The `.srs` decoder (`cmd/srsdecode`, compiled to `web/srs.wasm`) imports sing-box's `common/srs` reader and `sing/common/domain` succinct-set matcher and calls `srs.Read(recover: true)` — the upstream code path — to recover a compiled rule set back to plain `domain` / `domain_suffix` / `ip_cidr` rules. The hard, versioned binary parsing therefore tracks upstream by bumping the submodule.
-- **The matcher's behaviour is pinned by tests.** Domain suffix/keyword semantics, first-terminal-match-wins, the `resolve → ip_cidr` lifecycle, `and`/`or`/`invert`, and the `final` fallback each have fixtures in `testdata/fixtures.json`, checked against golden results plus hand-written assertions.
+- **The matcher's behaviour is pinned by tests.** Domain suffix/keyword semantics, first-terminal-match-wins, the `resolve → ip_cidr` lifecycle, `and`/`or`/`invert`, the `final` fallback, and TUN capture (per-family `route_address` / `route_exclude_address`, the `*_address_set` `ip_cidr`-only extraction) each have fixtures in `testdata/fixtures.json`, checked against golden results plus hand-written assertions.
 
 **The honest caveat:** outside the `.srs` decoder, the matcher is a reimplementation, and its tests are *regression* tests — the goldens are generated by the same engine that is checked against them, so they catch unintended change, not disagreement with sing-box. Earlier versions compared against a Go engine in `internal/engine`, but that was a second hand-written reimplementation rather than sing-box's real routing code, so agreeing with it never proved much; it has been removed. Treat sing-vis as a very well-tested model of the documented semantics, not as ground truth — when a result surprises you, sing-box itself is the authority.
 
@@ -127,8 +140,8 @@ web/               static single-page frontend (no build step)
   worker.js          Web Worker: loads the JS engine, runs analyze off the UI thread
   engine/            the pure-JS matching engine
     ip.js              IP parse + CIDR / is-private (netip-faithful, IPv4 + IPv6)
-    parse.js           JSONC → normalized route/DNS rules, rule sets, servers
-    engine.js          conditions, rules, rule-set eval, route/dns orchestration, analyze
+    parse.js           JSONC → normalized route/DNS rules, rule sets, servers, inbounds
+    engine.js          conditions, rules, rule-set eval, TUN capture, route/dns orchestration, analyze
     browser.js         browser deps: DoH resolver, remote fetch, lazy srs.wasm loader
   srs.wasm           .srs decoder (built by build.sh; lazy-loaded; gitignored)
 

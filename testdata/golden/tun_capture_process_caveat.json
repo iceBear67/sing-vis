@@ -1,0 +1,43 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "1.2.3.4",
+      "kind": "ip",
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "captured",
+            "summary": "the destination is routed into the TUN, so sing-box sees this connection and the rules below apply",
+            "addresses": [
+              {
+                "ip": "1.2.3.4",
+                "captured": true,
+                "reason": "covered by the default route auto_route installs"
+              }
+            ],
+            "notes": [
+              "exclude_package is set (com.example.app) — the listed Android packages stay out of the tunnel, which depends on the live connection"
+            ]
+          },
+          "sameAsAny": true
+        }
+      ]
+    }
+  ]
+}

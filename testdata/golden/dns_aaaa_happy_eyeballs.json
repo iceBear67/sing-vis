@@ -113,7 +113,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "v4only.v6.com",
@@ -191,7 +200,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "1.2.3.4",
@@ -206,7 +224,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     }
   ]
 }

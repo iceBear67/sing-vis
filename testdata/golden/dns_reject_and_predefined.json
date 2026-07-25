@@ -49,7 +49,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "fixed.me",
@@ -117,7 +126,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "clean.com",
@@ -190,7 +208,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     }
   ]
 }

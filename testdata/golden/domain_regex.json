@@ -51,7 +51,16 @@
           "fromFinal": false,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "adx.example.com",
@@ -103,7 +112,16 @@
           "fromFinal": false,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "www.example.com",
@@ -154,7 +172,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     }
   ]
 }

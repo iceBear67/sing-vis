@@ -51,7 +51,16 @@
           "fromFinal": false,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "com.cn",
@@ -120,7 +129,16 @@
           "fromFinal": true,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "sagernet.org",
@@ -190,7 +208,16 @@
           "fromFinal": false,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     },
     {
       "input": "sing-box.sagernet.org",
@@ -260,7 +287,16 @@
           "fromFinal": false,
           "assumed": false
         }
-      }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "",
+          "type": "mixed",
+          "assumed": true,
+          "sameAsAny": true
+        }
+      ]
     }
   ]
 }

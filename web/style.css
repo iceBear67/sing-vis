@@ -299,6 +299,8 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .chip.dns .v { color: var(--text); }
 .chip.reject { background: var(--reject-bg); border-color: transparent; }
 .chip.reject .v { color: var(--reject); }
+.chip.warn { background: var(--unknown-bg); border-color: transparent; }
+.chip.warn .v { color: var(--unknown); }
 
 .result-body { padding: 4px 16px 16px; display: none; }
 .result-card.open .result-body { display: block; }
@@ -411,6 +413,62 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 .decision.reject .d-value { color: var(--reject); }
 .decision .d-sub { font-size: 12px; color: var(--text-dim); }
 .arrow { color: var(--text-faint); }
+
+/* ---------- inbound switcher ----------
+   One tab per configured inbound, sitting directly above the rule trace it
+   belongs to. Tabs scroll sideways rather than wrapping: a wrapped tab row
+   reflows the whole trace below it every time a config gains an inbound, and
+   the row reads as a strip of alternatives only while it stays one line. */
+.inb-switch { margin-top: 2px; }
+.inb-tabs {
+  display: flex; gap: 4px; margin-bottom: 10px; padding-bottom: 2px;
+  overflow-x: auto; scrollbar-width: thin;
+}
+.inb-tab {
+  display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+  padding: 6px 11px; border-radius: 8px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-dim); font: inherit; font-size: 12.5px;
+}
+.inb-tab:hover { background: var(--bg-sunken); }
+.inb-tab.active { background: var(--accent-weak); border-color: var(--accent); color: var(--text); }
+.inb-tab .ib-name { font-family: var(--mono); font-weight: 650; }
+.inb-tab .ib-type { font-size: 11px; color: var(--text-faint); }
+.inb-tab .ib-mark {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+  padding: 1px 5px; border-radius: 5px;
+  background: var(--unknown-bg); color: var(--unknown);
+}
+.inb-tab .ib-mark.bypassed { background: var(--reject-bg); color: var(--reject); }
+.inb-panel { display: none; }
+.inb-panel.active { display: block; }
+/* Traffic that never enters the tunnel never reaches these rules; they are kept
+   visible (what *would* have happened is the useful next question) but pushed
+   back so the verdict above stays the headline. */
+.inb-panel.cap-bypassed .steps,
+.inb-panel.cap-bypassed .decision { opacity: .5; }
+
+.capture {
+  margin-bottom: 10px; padding: 11px 13px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg-sunken);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.capture.ok { border-color: var(--match); background: var(--match-bg); }
+.capture.bad { border-color: var(--reject); background: var(--reject-bg); }
+.capture.warn { border-color: var(--unknown); background: var(--unknown-bg); }
+.cap-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cap-badge {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  white-space: nowrap;
+}
+.capture.ok .cap-badge { color: var(--match); }
+.capture.bad .cap-badge { color: var(--reject); }
+.capture.warn .cap-badge { color: var(--unknown); }
+.cap-summary { font-size: 12.5px; line-height: 1.55; flex: 1; min-width: 0; }
+.cap-summary code { font-family: var(--mono); font-size: 11.5px; }
+.cap-addr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.cap-reason { color: var(--text-dim); }
+.cap-note { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
 
 /* ---------- modal ---------- */
 .modal-backdrop {
@@ -548,4 +606,11 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .decision { padding: 11px 12px; gap: 8px; }
   .decision .d-value { overflow-wrap: anywhere; min-width: 0; }
   .result-body { padding: 4px 13px 14px; }
+
+  /* The tab strip already scrolls sideways; bleed it to the card edges so the
+     scroll affordance is visible and a partly-cut tab reads as "more here". */
+  .inb-tabs { margin-inline: -13px; padding-inline: 13px; }
+  .capture { padding: 10px 11px; }
+  .cap-addr { gap: 6px; }
+  .cap-reason { flex-basis: 100%; }
 }

@@ -242,6 +242,69 @@
       "config": {"route":{"rules":[{"protocol":["https"],"outbound":"proxy"},{"port":[443],"outbound":"proxy443"}],"final":"direct"}},
       "assumeResolved": false,
       "inputs": ["example.com", "example.com:8080", "tls://example.com", "1.2.3.4"]
+    },
+    {
+      "name": "inbound_assumed_when_absent",
+      "config": {"route":{"rules":[{"inbound":["tun-in"],"outbound":"tunnelled"}],"final":"direct"}},
+      "inputs": ["1.2.3.4"]
+    },
+    {
+      "name": "inbound_rule_per_inbound",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true},{"type":"mixed","tag":"mixed-in","listen":"127.0.0.1","listen_port":2080}],"route":{"rules":[{"inbound":["mixed-in"],"outbound":"from-proxy"}],"final":"direct"}},
+      "inputs": ["1.2.3.4"]
+    },
+    {
+      "name": "tun_route_exclude_address",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true,"route_exclude_address":["192.168.0.0/16","10.0.0.0/8"]}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["192.168.1.10", "1.2.3.4"]
+    },
+    {
+      "name": "tun_route_address_only",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true,"route_address":["1.2.3.0/24"]}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["1.2.3.4", "8.8.8.8"]
+    },
+    {
+      "name": "tun_route_address_family_split",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30","fdfe:dcba:9876::1/126"],"auto_route":true,"route_address":["1.2.3.0/24"]}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["8.8.8.8", "2001:db8::1"]
+    },
+    {
+      "name": "tun_no_v6_address",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["2001:db8::1", "1.2.3.4"]
+    },
+    {
+      "name": "tun_route_exclude_address_set",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true,"route_exclude_address_set":["cn-ip"]}],"route":{"rules":[],"rule_set":[{"type":"inline","tag":"cn-ip","rules":[{"domain_suffix":["cn"]},{"ip_cidr":["223.5.5.0/24"]}]}],"final":"proxy"}},
+      "inputs": ["223.5.5.5", "1.2.3.4"]
+    },
+    {
+      "name": "tun_deprecated_inet4_route_exclude",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","inet4_address":"172.19.0.1/30","auto_route":true,"inet4_route_exclude_address":["1.2.3.0/24"]}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["1.2.3.4"]
+    },
+    {
+      "name": "tun_auto_route_off",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"route_exclude_address":["1.2.3.0/24"]}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["1.2.3.4"]
+    },
+    {
+      "name": "tun_capture_domain_partial",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true,"route_exclude_address":["203.0.113.0/24"]}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["split.example.com", "clean.example.com"],
+      "dns": {"split.example.com":{"ipv4":["203.0.113.9","198.51.100.9"]}, "clean.example.com":{"ipv4":["198.51.100.10"]}}
+    },
+    {
+      "name": "tun_capture_unresolved_domain",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true,"route_exclude_address":["203.0.113.0/24"]}],"route":{"rules":[],"final":"proxy"}},
+      "assumeResolved": false,
+      "inputs": ["example.com"],
+      "dns": {"example.com":{"ipv4":["203.0.113.9"]}}
+    },
+    {
+      "name": "tun_capture_process_caveat",
+      "config": {"inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"auto_route":true,"exclude_package":["com.example.app"]}],"route":{"rules":[],"final":"proxy"}},
+      "inputs": ["1.2.3.4"]
     }
   ]
 }

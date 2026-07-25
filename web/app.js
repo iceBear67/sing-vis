@@ -80,6 +80,11 @@ const state = {
 };
 
 const SAMPLE_CONFIG = `{
+  "inbounds": [
+    { "type": "tun", "tag": "tun-in", "address": ["172.19.0.1/30"], "auto_route": true,
+      "route_exclude_address": ["192.168.0.0/16", "10.0.0.0/8"] },
+    { "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 2080 }
+  ],
   "dns": {
     "servers": [
       { "tag": "proxy-dns", "type": "https", "server": "1.1.1.1", "detour": "proxy" },
@@ -425,7 +430,10 @@ function buildConfigIndex(text) {
   const dns = cfg.dns && typeof cfg.dns === 'object' ? cfg.dns : {};
   // Null-prototype: tags come from the config, and a set tagged "constructor"
   // must not resolve to something off Object.prototype.
-  const idx = { route: arr(route.rules), dns: arr(dns.rules), ruleSets: Object.create(null) };
+  const idx = {
+    route: arr(route.rules), dns: arr(dns.rules), inbounds: arr(cfg.inbounds),
+    ruleSets: Object.create(null),
+  };
   for (const rs of arr(route.rule_set)) {
     if (!rs || typeof rs !== 'object') continue;
     for (const tag of (Array.isArray(rs.tag) ? rs.tag : [rs.tag])) {
@@ -496,7 +504,7 @@ const FIELD_DOC = {
   protocol: 'the application protocol sing-box sniffs from the first bytes of the connection (tls, http, quic, …)',
   query_type: 'the DNS record type being asked for — clients typically ask A and AAAA in parallel',
   rule_set: 'the set matches when ANY headless rule inside it matches; the rules within a set are OR-ed',
-  inbound: 'which configured inbound accepted the connection',
+  inbound: 'which configured inbound accepted the connection — switch inbound above to evaluate it',
   client: 'the client software sing-box identified',
   auth_user: 'the inbound user that authenticated',
   user: 'the inbound user that authenticated',
@@ -557,6 +565,17 @@ function renderResults(result) {
   root.querySelectorAll('.step-head').forEach((h) => {
     h.onclick = (e) => { e.stopPropagation(); h.closest('.step').classList.toggle('expanded'); };
   });
+  // Every inbound's panel is rendered up front and only revealed on click, so
+  // switching never re-runs the analysis or loses which steps are expanded.
+  root.querySelectorAll('.inb-tab').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const wrap = b.closest('.inb-switch');
+      wrap.querySelectorAll('.inb-tab').forEach((x) => x.classList.toggle('active', x === b));
+      wrap.querySelectorAll('.inb-panel').forEach((p) => p.classList.toggle('active', p.dataset.inb === b.dataset.inb));
+      annotateGeo(wrap);
+    };
+  });
   annotateGeo(root);
 }
 
@@ -568,6 +587,13 @@ function renderInputCard(it, idx) {
     if (it.dns && it.dns.decision) chips.push(dnsChip(it.dns.decision));
     if (it.dnsAAAA && it.dnsAAAA.decision && !sameDNSOutcome(it.dns, it.dnsAAAA)) chips.push(dnsChip(it.dnsAAAA.decision, 'DNS AAAA'));
     if (it.route && it.route.decision) chips.push(routeChip(it.route.decision));
+    // A TUN that never receives the traffic outranks whatever the rules would
+    // have done with it, so it is worth surfacing on the collapsed card.
+    for (const ib of (it.inbounds || [])) {
+      const st = ib.capture && ib.capture.status;
+      if (st !== 'bypassed' && st !== 'partial') continue;
+      chips.push(`<span class="chip warn" title="${esc(ib.capture.summary)}"><span class="k">${esc(inboundName(ib))}</span><span class="v">${esc(st)}</span></span>`);
+    }
     const ip = inputIP(it);
     if (ip) chips.push(`<span class="chip geo-chip" data-geo-ip="${esc(ip)}"></span>`);
   }
@@ -585,9 +611,127 @@ function renderInputCard(it, idx) {
         ${renderResolved(it.resolved)}
         ${it.dns ? `<div class="section-title">DNS routing <span class="st-hint">which server / DNS action</span></div>${renderTrace(it.dns, 'dns')}` : ''}
         ${renderDNSAAAA(it)}
-        ${it.route ? `<div class="section-title">Route matching <span class="st-hint">which rule / outbound</span></div>${renderTrace(it.route, 'route')}` : ''}
+        ${renderRouteSection(it)}
       </div>
     </div>`;
+}
+
+/* ---------------- inbound perspectives ---------------- */
+// Route matching is shown once per configured inbound rather than once overall,
+// because the inbound decides two things no single trace can hold at the same
+// time: whether an `inbound` rule matches, and — for a TUN — whether sing-box
+// ever sees the connection at all. The tabs are the same input viewed from each
+// entry point; `it.route` behind them is the inbound-agnostic reading, which is
+// what the collapsed card header summarizes.
+function renderRouteSection(it) {
+  if (!it.route) return '';
+  const head = `<div class="section-title">Route matching <span class="st-hint">which rule / outbound</span></div>`;
+  const inbounds = it.inbounds || [];
+  if (!inbounds.length) return head + renderTrace(it.route, 'route');
+  const tabs = inbounds.map((ib, i) => `
+    <button class="inb-tab ${i === 0 ? 'active' : ''}" data-inb="${i}" title="${esc(inboundTitle(ib))}">
+      <span class="ib-name">${esc(inboundName(ib))}</span>
+      <span class="ib-type">${esc(ib.type || 'inbound')}</span>
+      ${captureMark(ib)}
+    </button>`).join('');
+  const panels = inbounds.map((ib, i) => `
+    <div class="inb-panel ${i === 0 ? 'active' : ''} ${ib.capture ? 'cap-' + esc(ib.capture.status) : ''}" data-inb="${i}">
+      ${renderInbound(ib)}
+      ${renderTrace(ib.route || it.route, 'route')}
+    </div>`).join('');
+  return head + `<div class="inb-switch">
+      <div class="inb-tabs" role="tablist">${tabs}</div>
+      ${panels}
+    </div>`;
+}
+
+function inboundName(ib) { return ib.tag || (ib.assumed ? 'assumed' : 'untagged'); }
+function inboundTitle(ib) {
+  if (ib.assumed) return 'No inbounds in the config — assuming one mixed inbound';
+  const where = ib.listen ? ` on ${ib.listen}${ib.listenPort ? ':' + ib.listenPort : ''}` : '';
+  return `${ib.type || 'inbound'} inbound${ib.tag ? ` "${ib.tag}"` : ' (no tag)'}${where}`;
+}
+
+// The tab only carries a marker when the inbound would NOT simply see the
+// traffic — a green tick on every captured tab would be noise.
+const CAPTURE_MARK = { bypassed: 'bypassed', partial: 'partial', unknown: '?' };
+function captureMark(ib) {
+  const m = ib.capture && CAPTURE_MARK[ib.capture.status];
+  return m ? `<span class="ib-mark ${esc(ib.capture.status)}">${esc(m)}</span>` : '';
+}
+
+const CAPTURE_LABEL = {
+  captured: 'enters the TUN',
+  bypassed: 'bypasses the TUN',
+  partial: 'partly bypasses the TUN',
+  unknown: 'undetermined',
+};
+
+// The keys quoted back for an inbound: the ones that decide whether traffic
+// reaches it. A full tun block is mostly MTU/stack/UDP tuning that has no
+// bearing on the verdict, so the excerpt is labelled as the subset it is.
+const INBOUND_EXCERPT_KEYS = [
+  'type', 'tag', 'listen', 'listen_port',
+  'address', 'inet4_address', 'inet6_address',
+  'auto_route', 'auto_redirect', 'strict_route',
+  'route_address', 'inet4_route_address', 'inet6_route_address',
+  'route_exclude_address', 'inet4_route_exclude_address', 'inet6_route_exclude_address',
+  'route_address_set', 'route_exclude_address_set',
+  'include_interface', 'exclude_interface',
+  'include_uid', 'include_uid_range', 'exclude_uid', 'exclude_uid_range',
+  'include_android_user', 'include_package', 'exclude_package',
+  'include_mac_address', 'exclude_mac_address',
+];
+
+function inboundExcerpt(index) {
+  const idx = state.configIndex;
+  const raw = idx && idx.inbounds ? idx.inbounds[index] : null;
+  if (!raw || typeof raw !== 'object') return '';
+  const pruned = {};
+  let dropped = false;
+  for (const k of Object.keys(raw)) {
+    if (INBOUND_EXCERPT_KEYS.includes(k)) pruned[k] = raw[k]; else dropped = true;
+  }
+  if (!Object.keys(pruned).length) return '';
+  return renderConfigExcerpt(`inbounds[${index}]${dropped ? ' · routing options' : ''}`, pruned);
+}
+
+// renderInbound explains the inbound itself: for a TUN, the capture verdict that
+// runs before any rule does; for a listen inbound, the fact that reaching it is
+// the client's choice rather than something the config decides.
+function renderInbound(ib) {
+  // The excerpt is quoted only where it is the evidence for a verdict — a TUN's
+  // route options. For a listen inbound the sentence below already says
+  // everything its config would, and the trace should start close to the top.
+  const excerpt = ib.capture ? inboundExcerpt(ib.index) : '';
+  if (!ib.capture) {
+    const where = ib.listen ? `<code>${esc(ib.listen)}${ib.listenPort ? ':' + ib.listenPort : ''}</code>` : 'its listen address';
+    const body = ib.assumed
+      ? 'The config declares no inbounds, so one <b>mixed</b> inbound is assumed. Its tag is unknown, which is why <code>inbound</code> rules stay undetermined below.'
+      : `A listen inbound receives only what a client sends to ${where}, so every connection it accepts reaches the rules below.`;
+    return `<div class="capture ${ib.assumed ? 'warn' : 'ok'}">
+        <div class="cap-head">
+          <span class="cap-badge">${ib.assumed ? 'assumed inbound' : 'no address filtering'}</span>
+          <span class="cap-summary">${body}</span>
+        </div>
+      </div>${excerpt}`;
+  }
+  const c = ib.capture;
+  const cls = { captured: 'ok', bypassed: 'bad', partial: 'warn', unknown: 'warn' }[c.status] || 'warn';
+  const addrs = (c.addresses || []).map((a) => `
+    <div class="cap-addr">
+      <span class="badge ${a.captured ? 'match' : 'no_match'}">${a.captured ? 'routed in' : 'bypasses'}</span>
+      <span class="ip-chip">${esc(a.ip)}<span class="geo-slot" data-geo-ip="${esc(a.ip)}"></span></span>
+      <span class="cap-reason">${esc(a.reason)}</span>
+    </div>`).join('');
+  const notes = (c.notes || []).map((n) => `<div class="cap-note">⚠ ${esc(n)}</div>`).join('');
+  return `<div class="capture ${cls}">
+      <div class="cap-head">
+        <span class="cap-badge">${esc(CAPTURE_LABEL[c.status] || c.status)}</span>
+        <span class="cap-summary">${esc(c.summary)}</span>
+      </div>
+      ${addrs}${notes}
+    </div>${excerpt}`;
 }
 
 function dnsChip(dec, label) {

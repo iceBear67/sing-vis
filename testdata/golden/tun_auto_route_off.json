@@ -1,0 +1,35 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "1.2.3.4",
+      "kind": "ip",
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "unknown",
+            "summary": "auto_route is off, so sing-box installs no routes — whether anything reaches this TUN is up to your own routing table",
+            "addresses": [],
+            "notes": []
+          },
+          "sameAsAny": true
+        }
+      ]
+    }
+  ]
+}

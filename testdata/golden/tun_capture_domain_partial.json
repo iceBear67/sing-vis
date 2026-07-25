@@ -2,12 +2,13 @@
   "dohServer": "fake-doh",
   "inputs": [
     {
-      "input": "host.example.com",
+      "input": "split.example.com",
       "kind": "domain",
       "resolved": {
         "server": "fake-doh",
         "ipv4": [
-          "1.2.3.4"
+          "203.0.113.9",
+          "198.51.100.9"
         ]
       },
       "dns": {
@@ -24,90 +25,7 @@
         "note": "no DNS rules; the final server is always used"
       },
       "route": {
-        "steps": [
-          {
-            "index": 0,
-            "type": "default",
-            "status": "match",
-            "summary": "ip_cidr=1.2.3.0/24",
-            "actionType": "route",
-            "actionText": "route → matched-ip",
-            "terminal": true,
-            "reached": true,
-            "conditions": [
-              {
-                "field": "ip_cidr",
-                "value": "1.2.3.0/24",
-                "group": "dest_addr",
-                "status": "match",
-                "matched": "1.2.3.0/24"
-              }
-            ]
-          }
-        ],
-        "selectedIndex": 0,
-        "final": "proxy",
-        "decision": {
-          "actionType": "route",
-          "outbound": "matched-ip",
-          "detail": "route → matched-ip",
-          "fromFinal": false,
-          "assumed": false
-        }
-      },
-      "inbounds": [
-        {
-          "index": 0,
-          "tag": "",
-          "type": "mixed",
-          "assumed": true,
-          "sameAsAny": true
-        }
-      ]
-    },
-    {
-      "input": "other.example.com",
-      "kind": "domain",
-      "resolved": {
-        "server": "fake-doh",
-        "ipv4": [
-          "9.9.9.9"
-        ]
-      },
-      "dns": {
-        "queryType": "A",
         "steps": null,
-        "matchedIndex": -1,
-        "final": "",
-        "decision": {
-          "actionType": "route",
-          "detail": "route → server (first server)",
-          "fromFinal": true,
-          "assumed": false
-        },
-        "note": "no DNS rules; the final server is always used"
-      },
-      "route": {
-        "steps": [
-          {
-            "index": 0,
-            "type": "default",
-            "status": "no_match",
-            "summary": "ip_cidr=1.2.3.0/24",
-            "actionType": "route",
-            "actionText": "route → matched-ip",
-            "terminal": true,
-            "reached": true,
-            "conditions": [
-              {
-                "field": "ip_cidr",
-                "value": "1.2.3.0/24",
-                "group": "dest_addr",
-                "status": "no_match"
-              }
-            ]
-          }
-        ],
         "selectedIndex": -1,
         "final": "proxy",
         "decision": {
@@ -121,9 +39,80 @@
       "inbounds": [
         {
           "index": 0,
-          "tag": "",
-          "type": "mixed",
-          "assumed": true,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "partial",
+            "summary": "only some of the resolved addresses are routed into the TUN — whichever one the client connects to decides whether sing-box sees the connection",
+            "addresses": [
+              {
+                "ip": "203.0.113.9",
+                "captured": false,
+                "reason": "excluded by route_exclude_address 203.0.113.0/24"
+              },
+              {
+                "ip": "198.51.100.9",
+                "captured": true,
+                "reason": "covered by the default route auto_route installs"
+              }
+            ],
+            "notes": []
+          },
+          "sameAsAny": true
+        }
+      ]
+    },
+    {
+      "input": "clean.example.com",
+      "kind": "domain",
+      "resolved": {
+        "server": "fake-doh",
+        "ipv4": [
+          "198.51.100.10"
+        ]
+      },
+      "dns": {
+        "queryType": "A",
+        "steps": null,
+        "matchedIndex": -1,
+        "final": "",
+        "decision": {
+          "actionType": "route",
+          "detail": "route → server (first server)",
+          "fromFinal": true,
+          "assumed": false
+        },
+        "note": "no DNS rules; the final server is always used"
+      },
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "captured",
+            "summary": "the destination is routed into the TUN, so sing-box sees this connection and the rules below apply",
+            "addresses": [
+              {
+                "ip": "198.51.100.10",
+                "captured": true,
+                "reason": "covered by the default route auto_route installs"
+              }
+            ],
+            "notes": []
+          },
           "sameAsAny": true
         }
       ]

@@ -5,7 +5,10 @@
       "input": "example.com",
       "kind": "domain",
       "resolved": {
-        "server": "fake-doh"
+        "server": "fake-doh",
+        "ipv4": [
+          "203.0.113.9"
+        ]
       },
       "dns": {
         "queryType": "A",
@@ -21,43 +24,28 @@
         "note": "no DNS rules; the final server is always used"
       },
       "route": {
-        "steps": [
-          {
-            "index": 0,
-            "type": "default",
-            "status": "match",
-            "summary": "protocol=tls",
-            "actionType": "route",
-            "actionText": "route → proxy",
-            "terminal": true,
-            "reached": true,
-            "conditions": [
-              {
-                "field": "protocol",
-                "value": "tls",
-                "group": "other",
-                "status": "match",
-                "note": "assumed protocol \"tls\""
-              }
-            ]
-          }
-        ],
-        "selectedIndex": 0,
-        "final": "direct",
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "proxy",
         "decision": {
           "actionType": "route",
           "outbound": "proxy",
           "detail": "route → proxy",
-          "fromFinal": false,
+          "fromFinal": true,
           "assumed": false
         }
       },
       "inbounds": [
         {
           "index": 0,
-          "tag": "",
-          "type": "mixed",
-          "assumed": true,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "unknown",
+            "summary": "the TUN routes are matched on the destination address, and this domain was not resolved — enable \"Resolve IPs for IP rules\" to decide it",
+            "addresses": [],
+            "notes": []
+          },
           "sameAsAny": true
         }
       ]

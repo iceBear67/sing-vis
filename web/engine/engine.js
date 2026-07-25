@@ -151,6 +151,19 @@
     for (const p of protocols) if (p.toLowerCase() === ec.protocol.toLowerCase()) return MATCH;
     return NO_MATCH;
   }
+  // Unlike the other runtime conditions, the inbound a connection arrived on is
+  // knowable — the config lists them, and the caller evaluates once per inbound.
+  // Without a chosen perspective (the inbound-agnostic pass) it stays UNKNOWN so
+  // it can never silently read as a no-match.
+  function matchInbound(ec, tags) {
+    if (!ec.inboundSet) return [UNKNOWN, '', 'which inbound accepted the connection is not specified — switch to an inbound to evaluate this'];
+    // An inbound declared without a tag has no name for a rule to reference, so
+    // it can only ever fail this condition.
+    if (ec.inbound === '') return [NO_MATCH, '', 'evaluated as arriving on an inbound with no tag, which no inbound rule can name'];
+    for (const t of tags) if (t === ec.inbound) return [MATCH, t, `evaluated as arriving on inbound "${ec.inbound}"`];
+    return [NO_MATCH, '', `evaluated as arriving on inbound "${ec.inbound}"`];
+  }
+
   function matchQueryType(ec, types) {
     if (ec.queryType === 0) return [UNKNOWN, ''];
     for (const t of types) if (t === ec.queryType) return [MATCH, queryTypeName(ec.queryType)];
@@ -208,6 +221,13 @@
         rsStatuses.push(rse.status);
       }
       groupStatuses.push(orStatus(rsStatuses));
+    }
+
+    // inbound group (OR across tags)
+    if (mf.inbound.length) {
+      const [st, m, note] = matchInbound(ec, mf.inbound);
+      conds.push(condEval({ field: 'inbound', value: joinVals(mf.inbound), group: 'inbound', status: st, matched: m, note }));
+      groupStatuses.push(st);
     }
 
     // "other" fields (AND)
@@ -364,10 +384,29 @@
       return ruleSetEval(out);
     }
 
+    // extractIPCIDR mirrors sing-box's extractIPSetFromRule, which is what
+    // route_address_set / route_exclude_address_set feed on: every destination
+    // ip_cidr in the set, flattened out of logical rules, with every other
+    // condition in the rule ignored. A rule that also tests a domain still
+    // contributes its prefixes, and a set with no ip_cidr contributes nothing.
+    function extractIPCIDR(tag) {
+      const l = loaded[tag];
+      if (!l) return { error: 'rule_set not defined in route.rule_set', prefixes: [] };
+      if (l.err) return { error: l.err, prefixes: [] };
+      const prefixes = [];
+      (function walk(nodes) {
+        for (const n of nodes) {
+          if (n.type === 'logical') walk(n.sub);
+          else for (const c of n.mf.ipCIDR) prefixes.push(c);
+        }
+      })(l.rules);
+      return { error: '', prefixes };
+    }
+
     // Preload every referenced rule set so evaluate() can stay synchronous.
     async function preload(tags) { for (const t of tags) await load(t); }
 
-    return { evaluate, preload };
+    return { evaluate, extractIPCIDR, preload };
   }
 
   // ---- DNS server helpers ----
@@ -473,6 +512,123 @@
     return { steps: steps.length ? steps : null, selectedIndex: -1, final: cfg.routeFinal, decision: dec };
   }
 
+  // ---- TUN capture ----
+  // Everything above models decisions sing-box makes about a connection it has.
+  // A TUN inbound decides something earlier and coarser: whether the connection
+  // reaches sing-box at all. `auto_route` points the system default route at the
+  // tunnel; `route_exclude_address` punches holes back out of it and
+  // `route_address` replaces it with an explicit list. Traffic falling outside
+  // leaves through the physical interface, so the route rules never run on it —
+  // a distinction no rule trace can express, hence its own verdict.
+  //
+  // sing-box splits every prefix list by family and hands the halves to sing-tun
+  // as separate v4/v6 route sets, so each destination address is judged against
+  // its own family only: route_address holding just IPv4 prefixes leaves IPv6 on
+  // the default route rather than excluding it.
+
+  const CAPTURED = 'captured', BYPASSED = 'bypassed', PARTIAL = 'partial';
+
+  function famPrefixes(strs, is4, kind) {
+    const out = [];
+    for (const s of strs) {
+      const p = IP.parsePrefix(s);
+      if (p && p.is4 === is4) out.push({ p, text: s, kind });
+    }
+    return out;
+  }
+
+  function setPrefixes(rs, tags, is4, kind, notes) {
+    const out = [];
+    for (const tag of tags) {
+      const ex = rs.extractIPCIDR(tag);
+      if (ex.error) { notes.push(`${kind} "${tag}": ${ex.error}`); continue; }
+      if (!ex.prefixes.length) { notes.push(`${kind} "${tag}": the rule-set holds no destination ip_cidr rules, so it contributes no routes`); continue; }
+      for (const s of ex.prefixes) {
+        const p = IP.parsePrefix(s);
+        if (p && p.is4 === is4) out.push({ p, text: s, kind: `${kind} "${tag}"` });
+      }
+    }
+    return out;
+  }
+
+  // Whether the tunnel carries a family at all: sing-tun installs no IPv6 route
+  // for a TUN that has no IPv6 address.
+  function tunHasFamily(addrs, is4) {
+    for (const s of addrs) {
+      const p = IP.parsePrefix(s) || IP.parseAddr(s);
+      if (p && p.is4 === is4) return true;
+    }
+    return false;
+  }
+
+  function famName(is4) { return is4 ? 'IPv4' : 'IPv6'; }
+
+  function evalTunCapture(tun, ec, rs) {
+    const cap = { status: UNKNOWN, summary: '', addresses: [], notes: [] };
+    for (const c of tun.caveats) {
+      cap.notes.push(`${c.field} is set (${c.value}) — ${c.why}, which depends on the live connection`);
+    }
+    if (!tun.autoRoute) {
+      cap.summary = 'auto_route is off, so sing-box installs no routes — whether anything reaches this TUN is up to your own routing table';
+      return cap;
+    }
+    const addrs = matchAddrs(ec);
+    if (!addrs.length) {
+      cap.summary = ec.host !== ''
+        ? 'the TUN routes are matched on the destination address, and this domain was not resolved — enable "Resolve IPs for IP rules" to decide it'
+        : 'no destination address to match the TUN routes against';
+      return cap;
+    }
+
+    // Built once per family rather than per address: a geoip set expands to
+    // thousands of prefixes, and a name with eight A records would otherwise
+    // re-parse all of them eight times over.
+    const byFamily = {};
+    const routesFor = (is4) => (byFamily[is4] || (byFamily[is4] = {
+      excl: famPrefixes(tun.routeExcludeAddress, is4, 'route_exclude_address')
+        .concat(setPrefixes(rs, tun.routeExcludeAddressSet, is4, 'route_exclude_address_set', cap.notes)),
+      incl: famPrefixes(tun.routeAddress, is4, 'route_address')
+        .concat(setPrefixes(rs, tun.routeAddressSet, is4, 'route_address_set', cap.notes)),
+    }));
+
+    for (const a of addrs) {
+      const is4 = a.is4;
+      const v = { ip: IP.toString(a) };
+      const { excl, incl } = routesFor(is4);
+      const hitExcl = excl.find((e) => IP.contains(e.p, a));
+      if (tun.address.length && !tunHasFamily(tun.address, is4)) {
+        v.captured = false;
+        v.reason = `the TUN has no ${famName(is4)} address, so no ${famName(is4)} route is installed`;
+      } else if (hitExcl) {
+        v.captured = false;
+        v.reason = `excluded by ${hitExcl.kind} ${hitExcl.text}`;
+      } else if (incl.length) {
+        const hitIncl = incl.find((e) => IP.contains(e.p, a));
+        if (hitIncl) { v.captured = true; v.reason = `inside ${hitIncl.kind} ${hitIncl.text}`; }
+        else { v.captured = false; v.reason = `outside route_address — only the listed ${famName(is4)} prefixes are routed into the TUN`; }
+      } else {
+        v.captured = true;
+        v.reason = 'covered by the default route auto_route installs';
+      }
+      cap.addresses.push(v);
+    }
+
+    const hit = cap.addresses.filter((v) => v.captured).length;
+    if (hit === cap.addresses.length) {
+      cap.status = CAPTURED;
+      cap.summary = 'the destination is routed into the TUN, so sing-box sees this connection and the rules below apply';
+    } else if (hit === 0) {
+      cap.status = BYPASSED;
+      cap.summary = 'the destination bypasses the TUN and leaves through the physical interface — sing-box never sees this connection, so none of the rules below run';
+    } else {
+      cap.status = PARTIAL;
+      cap.summary = 'only some of the resolved addresses are routed into the TUN — whichever one the client connects to decides whether sing-box sees the connection';
+    }
+    // Deduplicate: one rule-set note per set, not one per address.
+    cap.notes = cap.notes.filter((n, i) => cap.notes.indexOf(n) === i);
+    return cap;
+  }
+
   function allAddrs(res, strategy) {
     const v4 = res.ipv4 || [], v6 = res.ipv6 || [];
     switch (strategy) {
@@ -489,6 +645,45 @@
     const addrs = parseAddrs(allAddrs(ec.resolvedRaw, strategy));
     if (addrs.length > 0) { ec.addresses = addrs; ec.destResolved = true; }
     return addrs;
+  }
+
+  // ---- per-inbound route traces ----
+  // matchRoute mutates the eval context when a `resolve` action fires, so every
+  // trace is run from the same snapshot — otherwise the second inbound would
+  // inherit addresses the first one resolved and quietly disagree with it.
+  function routeFrom(ec, cfg, inboundTag) {
+    const addrs = ec.addresses, resolved = ec.destResolved;
+    const prevTag = ec.inbound, prevSet = ec.inboundSet;
+    ec.inbound = inboundTag || ''; ec.inboundSet = inboundTag !== null;
+    try { return matchRoute(ec, cfg); }
+    finally {
+      ec.addresses = addrs; ec.destResolved = resolved;
+      ec.inbound = prevTag; ec.inboundSet = prevSet;
+    }
+  }
+
+  function sameTrace(a, b) {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  }
+
+  // One entry per configured inbound. `sameAsAny` marks the common case where an
+  // inbound changes nothing about the outcome, so the trace isn't duplicated —
+  // the caller re-renders the inbound-agnostic one.
+  function matchInbounds(ec, cfg, rs, anyTrace) {
+    return cfg.inbounds.map((inb) => {
+      // Position in the config's own `inbounds` array, which skips malformed
+      // entries the parser dropped — the caller quotes the config by this index.
+      const o = { index: inb.index, tag: inb.tag, type: inb.type };
+      if (inb.assumed) o.assumed = true;
+      if (inb.listen) o.listen = inb.listen;
+      if (inb.listenPort) o.listenPort = inb.listenPort;
+      if (inb.tun) o.capture = evalTunCapture(inb.tun, ec, rs);
+      // An assumed inbound has no tag to match against, so `inbound` conditions
+      // stay undetermined rather than reading as a no-match on the empty tag.
+      const trace = routeFrom(ec, cfg, inb.assumed ? null : inb.tag);
+      if (sameTrace(trace, anyTrace)) o.sameAsAny = true; else o.route = trace;
+      return o;
+    });
   }
 
   // ---- input normalization ----
@@ -544,7 +739,8 @@
     if (ipAddr) {
       const it = { input: line, kind: 'ip' };
       ec.destIsIP = true; ec.destAddr = ipAddr;
-      it.route = matchRoute(ec, cfg);
+      it.route = routeFrom(ec, cfg, null);
+      it.inbounds = matchInbounds(ec, cfg, rs, it.route);
       return it;
     }
     if (!looksLikeDomain(rawHost)) {
@@ -590,7 +786,8 @@
     if (it.resolved && it.resolved.ipv6 && it.resolved.ipv6.length) {
       it.dnsAAAA = matchDNS(ec, cfg, 28); // AAAA
     }
-    it.route = matchRoute(ec, cfg);
+    it.route = routeFrom(ec, cfg, null);
+    it.inbounds = matchInbounds(ec, cfg, rs, it.route);
     return it;
   }
 
@@ -612,6 +809,9 @@
     const tags = new Set();
     collectTags(cfg.routeRules, tags);
     collectTags(cfg.dnsRules, tags);
+    // A TUN's route_address_set / route_exclude_address_set resolve against the
+    // same route.rule_set registry, so they have to be loaded here too.
+    for (const t of P.inboundRuleSetTags(cfg.inbounds)) tags.add(t);
     await rs.preload(tags);
 
     const assumeResolved = req.assumeResolved !== false; // default true

@@ -1,0 +1,77 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "223.5.5.5",
+      "kind": "ip",
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "bypassed",
+            "summary": "the destination bypasses the TUN and leaves through the physical interface — sing-box never sees this connection, so none of the rules below run",
+            "addresses": [
+              {
+                "ip": "223.5.5.5",
+                "captured": false,
+                "reason": "excluded by route_exclude_address_set \"cn-ip\" 223.5.5.0/24"
+              }
+            ],
+            "notes": []
+          },
+          "sameAsAny": true
+        }
+      ]
+    },
+    {
+      "input": "1.2.3.4",
+      "kind": "ip",
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "captured",
+            "summary": "the destination is routed into the TUN, so sing-box sees this connection and the rules below apply",
+            "addresses": [
+              {
+                "ip": "1.2.3.4",
+                "captured": true,
+                "reason": "covered by the default route auto_route installs"
+              }
+            ],
+            "notes": []
+          },
+          "sameAsAny": true
+        }
+      ]
+    }
+  ]
+}

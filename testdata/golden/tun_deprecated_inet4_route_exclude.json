@@ -1,0 +1,41 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "1.2.3.4",
+      "kind": "ip",
+      "route": {
+        "steps": null,
+        "selectedIndex": -1,
+        "final": "proxy",
+        "decision": {
+          "actionType": "route",
+          "outbound": "proxy",
+          "detail": "route → proxy",
+          "fromFinal": true,
+          "assumed": false
+        }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "bypassed",
+            "summary": "the destination bypasses the TUN and leaves through the physical interface — sing-box never sees this connection, so none of the rules below run",
+            "addresses": [
+              {
+                "ip": "1.2.3.4",
+                "captured": false,
+                "reason": "excluded by route_exclude_address 1.2.3.0/24"
+              }
+            ],
+            "notes": []
+          },
+          "sameAsAny": true
+        }
+      ]
+    }
+  ]
+}

@@ -81,6 +81,7 @@
       domain: [], domainSuffix: [], domainKeyword: [], domainRegex: [],
       ipCIDR: [], ipIsPrivate: false, srcIPCIDR: [], srcIPIsPriv: false,
       port: [], portRange: [], srcPort: [], srcPortRange: [],
+      inbound: [],
       network: [], protocol: [], queryType: [], ruleSet: [], rsMatchSource: false,
       invert: false, rawDomain: null, rawIPSet: null, unknowns: [], dnsFilter: [],
     };
@@ -117,7 +118,10 @@
     mf.ruleSet = strlist(r.rule_set);
     mf.rsMatchSource = r.rule_set_ip_cidr_match_source === true || r.rule_set_ipcidr_match_source === true;
     mf.invert = r.invert === true;
-    addUnknownList(mf, 'inbound', r.inbound);
+    // `inbound` is the one "runtime" condition the visualizer can actually
+    // answer: the config names its inbounds, so each one is a perspective the
+    // user can switch to (see cfg.inbounds).
+    mf.inbound = strlist(r.inbound);
     addUnknownList(mf, 'client', r.client);
     addUnknownList(mf, 'auth_user', r.auth_user);
     addUnknownList(mf, 'user', r.user);
@@ -371,6 +375,92 @@
     return out;
   }
 
+  // ---- inbounds ----
+  // Only the part of an inbound that decides whether traffic ever reaches
+  // sing-box is modelled here. For a TUN that is the routing table: `auto_route`
+  // hands the system default route to the tunnel, `route_exclude_address` punches
+  // holes back out of it, and `route_address` replaces it with an explicit list.
+  // A destination outside the tunnel's routes leaves through the physical
+  // interface — sing-box never sees it, so no route rule can apply to it.
+
+  // Filters that also gate capture but depend on the live connection (which
+  // process, which interface), so they can only ever be flagged as caveats.
+  const TUN_CAPTURE_FILTERS = [
+    ['include_interface', 'only traffic from the listed interfaces enters the tunnel'],
+    ['exclude_interface', 'traffic from the listed interfaces stays out of the tunnel'],
+    ['include_uid', 'only the listed Linux UIDs enter the tunnel'],
+    ['include_uid_range', 'only the listed Linux UID ranges enter the tunnel'],
+    ['exclude_uid', 'the listed Linux UIDs stay out of the tunnel'],
+    ['exclude_uid_range', 'the listed Linux UID ranges stay out of the tunnel'],
+    ['include_android_user', 'only the listed Android users enter the tunnel'],
+    ['include_package', 'only the listed Android packages enter the tunnel'],
+    ['exclude_package', 'the listed Android packages stay out of the tunnel'],
+    ['include_mac_address', 'only the listed MAC addresses enter the tunnel'],
+    ['exclude_mac_address', 'the listed MAC addresses stay out of the tunnel'],
+  ];
+
+  // Collect several Listable prefix fields into one trimmed list — the 1.10
+  // merges (`route_address`) and the inet4/inet6 fields they replaced end up in
+  // the same bucket, exactly as sing-box merges them before splitting by family.
+  function prefixList(...vals) {
+    const out = [];
+    for (const v of vals) for (const s of strlist(v)) { const t = s.trim(); if (t) out.push(t); }
+    return out;
+  }
+
+  function tunOptionsOf(raw) {
+    const t = {
+      autoRoute: raw.auto_route === true,
+      autoRedirect: raw.auto_redirect === true,
+      strictRoute: raw.strict_route === true,
+      address: prefixList(raw.address, raw.inet4_address, raw.inet6_address),
+      routeAddress: prefixList(raw.route_address, raw.inet4_route_address, raw.inet6_route_address),
+      routeExcludeAddress: prefixList(raw.route_exclude_address, raw.inet4_route_exclude_address, raw.inet6_route_exclude_address),
+      routeAddressSet: strlist(raw.route_address_set),
+      routeExcludeAddressSet: strlist(raw.route_exclude_address_set),
+      caveats: [],
+    };
+    for (const [field, why] of TUN_CAPTURE_FILTERS) {
+      const l = strlist(raw[field]);
+      if (l.length) t.caveats.push({ field, value: joinVals(l), why });
+    }
+    return t;
+  }
+
+  function parseInbounds(inbounds) {
+    const out = [];
+    list(inbounds).forEach((raw, index) => {
+      if (!raw || typeof raw !== 'object') return;
+      const inb = {
+        index,
+        tag: typeof raw.tag === 'string' ? raw.tag : '',
+        type: typeof raw.type === 'string' ? raw.type : '',
+        listen: typeof raw.listen === 'string' ? raw.listen : '',
+        listenPort: Number.isFinite(raw.listen_port) ? raw.listen_port : 0,
+      };
+      if (inb.type === 'tun') inb.tun = tunOptionsOf(raw);
+      out.push(inb);
+    });
+    // A config pasted in without its inbounds still arrived somewhere. Assume the
+    // common case — a local mixed proxy, which receives only what a client aims
+    // at it and so filters nothing — and mark it, so the assumption is never
+    // mistaken for something the config said.
+    if (!out.length) out.push({ index: 0, tag: '', type: 'mixed', listen: '', listenPort: 0, assumed: true });
+    return out;
+  }
+
+  // Rule-set tags a TUN pulls routes from; they resolve against route.rule_set
+  // like any other tag, so the engine has to preload them too.
+  function inboundRuleSetTags(inbounds) {
+    const tags = [];
+    for (const inb of inbounds) {
+      if (!inb.tun) continue;
+      for (const t of inb.tun.routeAddressSet) tags.push(t);
+      for (const t of inb.tun.routeExcludeAddressSet) tags.push(t);
+    }
+    return tags;
+  }
+
   // ---- top-level ----
   function parseConfig(text) {
     text = String(text || '').trim();
@@ -385,8 +475,10 @@
 
     const cfg = {
       routeRules: [], routeRuleSets: [], routeFinal: '',
-      dnsRules: [], dnsFinal: '', dnsServers: [], warnings: [],
+      dnsRules: [], dnsFinal: '', dnsServers: [], inbounds: [], warnings: [],
     };
+
+    cfg.inbounds = parseInbounds(raw.inbounds);
 
     const route = raw.route;
     if (route && typeof route === 'object') {
@@ -414,6 +506,6 @@
 
   root.SingvisParse = {
     parseConfig, parseJSONC, joinVals, joinU16, fieldsFromHeadless, buildHeadlessNode,
-    QTYPE_TO_NUM, qtypeNum,
+    inboundRuleSetTags, QTYPE_TO_NUM, qtypeNum,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

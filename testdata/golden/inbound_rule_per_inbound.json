@@ -1,0 +1,133 @@
+{
+  "dohServer": "fake-doh",
+  "inputs": [
+    {
+      "input": "1.2.3.4",
+      "kind": "ip",
+      "route": {
+        "steps": [
+          {
+            "index": 0,
+            "type": "default",
+            "status": "unknown",
+            "summary": "inbound=mixed-in",
+            "actionType": "route",
+            "actionText": "route → from-proxy",
+            "terminal": true,
+            "reached": true,
+            "conditions": [
+              {
+                "field": "inbound",
+                "value": "mixed-in",
+                "group": "inbound",
+                "status": "unknown",
+                "note": "which inbound accepted the connection is not specified — switch to an inbound to evaluate this"
+              }
+            ],
+            "effect": "could match here if its undetermined conditions hold"
+          }
+        ],
+        "selectedIndex": -1,
+        "final": "direct",
+        "decision": {
+          "actionType": "route",
+          "outbound": "direct",
+          "detail": "route → direct",
+          "fromFinal": true,
+          "assumed": true
+        }
+      },
+      "inbounds": [
+        {
+          "index": 0,
+          "tag": "tun-in",
+          "type": "tun",
+          "capture": {
+            "status": "captured",
+            "summary": "the destination is routed into the TUN, so sing-box sees this connection and the rules below apply",
+            "addresses": [
+              {
+                "ip": "1.2.3.4",
+                "captured": true,
+                "reason": "covered by the default route auto_route installs"
+              }
+            ],
+            "notes": []
+          },
+          "route": {
+            "steps": [
+              {
+                "index": 0,
+                "type": "default",
+                "status": "no_match",
+                "summary": "inbound=mixed-in",
+                "actionType": "route",
+                "actionText": "route → from-proxy",
+                "terminal": true,
+                "reached": true,
+                "conditions": [
+                  {
+                    "field": "inbound",
+                    "value": "mixed-in",
+                    "group": "inbound",
+                    "status": "no_match",
+                    "note": "evaluated as arriving on inbound \"tun-in\""
+                  }
+                ]
+              }
+            ],
+            "selectedIndex": -1,
+            "final": "direct",
+            "decision": {
+              "actionType": "route",
+              "outbound": "direct",
+              "detail": "route → direct",
+              "fromFinal": true,
+              "assumed": false
+            }
+          }
+        },
+        {
+          "index": 1,
+          "tag": "mixed-in",
+          "type": "mixed",
+          "listen": "127.0.0.1",
+          "listenPort": 2080,
+          "route": {
+            "steps": [
+              {
+                "index": 0,
+                "type": "default",
+                "status": "match",
+                "summary": "inbound=mixed-in",
+                "actionType": "route",
+                "actionText": "route → from-proxy",
+                "terminal": true,
+                "reached": true,
+                "conditions": [
+                  {
+                    "field": "inbound",
+                    "value": "mixed-in",
+                    "group": "inbound",
+                    "status": "match",
+                    "matched": "mixed-in",
+                    "note": "evaluated as arriving on inbound \"mixed-in\""
+                  }
+                ]
+              }
+            ],
+            "selectedIndex": 0,
+            "final": "direct",
+            "decision": {
+              "actionType": "route",
+              "outbound": "from-proxy",
+              "detail": "route → from-proxy",
+              "fromFinal": false,
+              "assumed": false
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
